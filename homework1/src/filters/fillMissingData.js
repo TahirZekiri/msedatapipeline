@@ -64,11 +64,8 @@ async function fillMissingData(issuer, fromDate) {
                     const lastTradePrice = $(tds[1]).text().trim();
                     const max = $(tds[2]).text().trim();
                     const min = $(tds[3]).text().trim();
-                    const avgPrice = $(tds[4]).text().trim();
-                    const percentageChange = $(tds[5]).text().trim();
                     const volume = $(tds[6]).text().trim();
                     const turnoverBest = $(tds[7]).text().trim();
-                    const totalTurnover = $(tds[8]).text().trim();
 
                     data.push({
                         issuer,
@@ -76,11 +73,8 @@ async function fillMissingData(issuer, fromDate) {
                         lastTradePrice: parseFloat(lastTradePrice.replace(/,/g, '')) || null,
                         max: parseFloat(max.replace(/,/g, '')) || null,
                         min: parseFloat(min.replace(/,/g, '')) || null,
-                        avgPrice: parseFloat(avgPrice.replace(/,/g, '')) || null,
-                        percentageChange: parseFloat(percentageChange.replace(/,/g, '')) || null,
                         volume: parseInt(volume.replace(/,/g, ''), 10) || 0,
                         turnoverBest: parseFloat(turnoverBest.replace(/,/g, '')) || 0,
-                        totalTurnover: parseFloat(totalTurnover.replace(/,/g, '')) || 0,
                     });
                 }
             });
