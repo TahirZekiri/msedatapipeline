@@ -1,7 +1,8 @@
 // src/main.js
-const fetchIssuers = require("./dataFetch");
-const checkLastDate = require("./filters/checkLastDate");
-const fillMissingData = require("./filters/fillMissingData");
+const fetchIssuers = require("./filters/filter1");
+const checkLastDate = require("./filters/filter2");
+const fillMissingData = require("./filters/filter3");
+const measureTime = require("./timer");
 
 async function main() {
     try {
@@ -25,4 +26,4 @@ async function main() {
     }
 }
 
-main().then(() => console.log("Process finished"));
+measureTime(main).then(() => console.log("Process finished"));

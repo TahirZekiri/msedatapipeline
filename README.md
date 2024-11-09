@@ -34,9 +34,9 @@ node src/main.js
 
 Explanation of Files and Code
 Key Scripts
-src/dataFetch.js: Scrapes issuer codes from the MSE website.
-src/filters/checkLastDate.js: Checks the last available data date in MongoDB.
-src/filters/fillMissingData.js: Fetches missing data from MSE based on the last available date.
+src/filter1.js: Scrapes issuer codes from the MSE website.
+src/filters/filter2.js: Checks the last available data date in MongoDB.
+src/filters/filter3.js: Fetches missing data from MSE based on the last available date.
 src/db.js: Establishes a MongoDB connection.
 src/main.js: Executes the pipeline in sequence.
 src/timer.js: Measures the time taken for database population.
