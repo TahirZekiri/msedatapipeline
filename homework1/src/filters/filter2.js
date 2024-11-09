@@ -1,8 +1,5 @@
-// checking last date filter
-const connectDB = require("../db");
-
-async function filter2(issuer) {
-    const db = await connectDB();
+// src/filters/filter2.js
+async function filter2(issuer, db) {
     const collection = db.collection("stockData");
 
     // Get the last date for this issuer

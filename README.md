@@ -43,7 +43,7 @@ src/timer.js: Measures the time taken for database population.
 
 MongoDB Compass (Optional for Viewing Data)
 Open MongoDB Compass and connect to mongodb://localhost:27017.
-Select the stockMarketDB database to view stored collections.
+Select the stockDB database to view stored collections.
 
 Running the Project with WebStorm
 If you are using WebStorm, you can set up Run/Debug configurations for main.js to run the pipeline with one click. This also makes it easier to debug and track variables throughout execution.

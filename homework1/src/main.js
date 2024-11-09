@@ -1,26 +1,29 @@
 // src/main.js
-const fetchIssuers = require("./filters/filter1");
-const checkLastDate = require("./filters/filter2");
-const fillMissingData = require("./filters/filter3");
+const filter1 = require("./filters/filter1");
+const filter2 = require("./filters/filter2");
+const filter3 = require("./filters/filter3");
 const measureTime = require("./timer");
+const connectDB = require("./db");
 
 async function main() {
     try {
-        const issuers = await fetchIssuers();
+        const db = await connectDB();
+        const issuers = await filter1();
 
         if (issuers.length === 0) {
             console.log("No issuers found.");
             return;
         }
 
-        // Process only the first issuer for testing
-        const firstIssuer = issuers[0];
-        console.log(`Processing data for issuer: ${firstIssuer.code}`);
+        console.log(`Processing data for ${issuers.length} issuers in parallel...`);
+        await Promise.all(
+            issuers.map(async (issuer) => {
+                const lastDate = await filter2(issuer.code, db);
+                await filter3(issuer.code, lastDate, db);
+            })
+        );
 
-        const lastDate = await checkLastDate(firstIssuer.code);
-        await fillMissingData(firstIssuer.code, lastDate);
-
-        console.log("Test pipeline complete for first issuer.");
+        console.log("Pipeline complete for all issuers.");
     } catch (error) {
         console.error("Error in main pipeline:", error);
     }
