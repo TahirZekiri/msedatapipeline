@@ -1,4 +1,4 @@
-// src/filters/filter2.js
+// checking last date filter
 async function filter2(issuer, db) {
     const collection = db.collection("stockData");
 

@@ -5,8 +5,27 @@ const cheerio = require("cheerio");
 function formatMacedonianNumber(value) {
     return value !== null ? value.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null;
 }
+
 function formatDate(date) {
     return date.toISOString().split("T")[0];
+}
+
+async function fetchDataWithRetries(url, params, maxRetries = 3, delay = 2000) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            return await axios.post(url, params, {
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            });
+        } catch (error) {
+            if (error.response && error.response.status === 503 && attempt < maxRetries) {
+                console.warn(`Retry ${attempt} for ${url} after 503 error...`);
+                await new Promise(res => setTimeout(res, delay));
+            } else {
+                throw error;
+            }
+        }
+    }
+    throw new Error(`Failed to fetch data from ${url} after ${maxRetries} retries.`);
 }
 
 async function filter3(issuer, fromDate, db) {
@@ -23,9 +42,9 @@ async function filter3(issuer, fromDate, db) {
         console.log(`Fetching data for ${issuer} from ${formattedFromDate} to ${formattedToDate}`);
 
         try {
-            const response = await axios.post(`https://www.mse.mk/en/stats/symbolhistory/${issuer}`,
-                new URLSearchParams({ FromDate: formattedFromDate, ToDate: formattedToDate, Code: issuer }).toString(),
-                { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+            const response = await fetchDataWithRetries(
+                `https://www.mse.mk/en/stats/symbolhistory/${issuer}`,
+                new URLSearchParams({ FromDate: formattedFromDate, ToDate: formattedToDate, Code: issuer }).toString()
             );
 
             const html = response.data;
@@ -42,6 +61,7 @@ async function filter3(issuer, fromDate, db) {
                     const min = parseFloat($(tds[3]).text().replace(/,/g, ''));
                     const volume = parseInt($(tds[6]).text().replace(/,/g, ''), 10) || 0;
                     const turnoverBest = parseFloat($(tds[7]).text().replace(/,/g, ''));
+
                     const formattedLastTradePrice = isNaN(lastTradePrice) ? null : formatMacedonianNumber(lastTradePrice);
                     const formattedMax = isNaN(max) ? null : formatMacedonianNumber(max);
                     const formattedMin = isNaN(min) ? null : formatMacedonianNumber(min);
