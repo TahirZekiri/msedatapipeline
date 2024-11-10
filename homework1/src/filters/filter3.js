@@ -30,22 +30,25 @@ async function fetchDataWithRetries(url, params, maxRetries = 3, delay = 2000) {
 
 async function filter3(issuer, startDate, db) {
     const toDate = new Date();
+    toDate.setUTCHours(0, 0, 0, 0);
 
-    if (!startDate || startDate >= toDate) {
+    if (startDate >= toDate) {
         console.log(`No new data needed for ${issuer} as it is already up-to-date.`);
         return;
     }
 
     let currentFromDate = new Date(startDate);
+    currentFromDate.setUTCHours(0, 0, 0, 0);
 
     while (currentFromDate < toDate) {
         let currentToDate = new Date(currentFromDate);
         currentToDate.setDate(currentToDate.getDate() + 364);
         if (currentToDate > toDate) currentToDate = new Date(toDate);
+        currentToDate.setUTCHours(23, 59, 59, 999);
 
         const formattedFromDate = formatDate(currentFromDate);
         const formattedToDate = formatDate(currentToDate);
-        console.log(`Fetching data for ${issuer} from ${formattedFromDate} to ${formattedToDate}`);
+        console.log(`Attempting to fetch data for ${issuer} from ${formattedFromDate} to ${formattedToDate}`);
 
         try {
             const response = await fetchDataWithRetries(
@@ -61,22 +64,31 @@ async function filter3(issuer, startDate, db) {
             tableRows.each((_, element) => {
                 const tds = $(element).find('td');
                 if (tds.length === 9) {
-                    const date = formatDate(new Date($(tds[0]).text().trim()));
-                    const lastTradePrice = parseFloat($(tds[1]).text().replace(/,/g, ''));
-                    const max = parseFloat($(tds[2]).text().replace(/,/g, ''));
-                    const min = parseFloat($(tds[3]).text().replace(/,/g, ''));
-                    const volume = parseInt($(tds[6]).text().replace(/,/g, ''), 10) || 0;
-                    const turnoverBest = parseFloat($(tds[7]).text().replace(/,/g, ''));
+                    const parsedDateString = $(tds[0]).text().trim();
+                    const [month, day, year] = parsedDateString.split('/');
+                    const parsedDate = new Date(Date.UTC(year, month - 1, day));
+                    const date = formatDate(parsedDate);
 
-                    data.push({
-                        issuer,
-                        date,
-                        lastTradePrice: isNaN(lastTradePrice) ? null : formatMacedonianNumber(lastTradePrice),
-                        max: isNaN(max) ? null : formatMacedonianNumber(max),
-                        min: isNaN(min) ? null : formatMacedonianNumber(min),
-                        volume,
-                        turnoverBest: isNaN(turnoverBest) ? null : formatMacedonianNumber(turnoverBest)
-                    });
+                    console.log(`Parsed date for ${issuer}: ${parsedDateString} -> ${date}`);
+                    if (parsedDate >= currentFromDate && parsedDate <= currentToDate) {
+                        const lastTradePrice = parseFloat($(tds[1]).text().replace(/,/g, ''));
+                        const max = parseFloat($(tds[2]).text().replace(/,/g, ''));
+                        const min = parseFloat($(tds[3]).text().replace(/,/g, ''));
+                        const volume = parseInt($(tds[6]).text().replace(/,/g, ''), 10) || 0;
+                        const turnoverBest = parseFloat($(tds[7]).text().replace(/,/g, ''));
+
+                        data.push({
+                            issuer,
+                            date,
+                            lastTradePrice: isNaN(lastTradePrice) ? null : formatMacedonianNumber(lastTradePrice),
+                            max: isNaN(max) ? null : formatMacedonianNumber(max),
+                            min: isNaN(min) ? null : formatMacedonianNumber(min),
+                            volume,
+                            turnoverBest: isNaN(turnoverBest) ? null : formatMacedonianNumber(turnoverBest)
+                        });
+                    } else {
+                        console.log(`Skipping date out of range: ${date} for issuer: ${issuer}`);
+                    }
                 }
             });
 
@@ -92,6 +104,7 @@ async function filter3(issuer, startDate, db) {
 
         currentFromDate = new Date(currentToDate);
         currentFromDate.setDate(currentFromDate.getDate() + 1);
+        currentFromDate.setUTCHours(0, 0, 0, 0);
     }
 }
 

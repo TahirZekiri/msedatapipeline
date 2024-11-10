@@ -2,7 +2,7 @@ const axios = require("axios");
 const cheerio = require("cheerio");
 const { MongoClient } = require("mongodb");
 
-const issuerCode = "TKVS";  // Replace with the actual issuer code
+const issuerCode = "ADIN";
 const uri = "mongodb://localhost:27017";
 const dbName = "stockDB";
 const collectionName = "stockData";
@@ -74,15 +74,12 @@ async function main() {
 
     console.log(`Fetching data for issuer ${issuerCode} from ${startDate.toISOString().split("T")[0]} to ${endDate.toISOString().split("T")[0]}`);
 
-    // Step 1: Fetch dates from the MSE site
     const fetchedDates = await fetchData(issuerCode, startDate, endDate);
     console.log(`Fetched dates (${fetchedDates.length}):`, fetchedDates);
 
-    // Step 2: Fetch dates from the database
     const dbDates = await checkDatabaseDates(issuerCode, db);
     console.log(`Database dates (${dbDates.length}):`, dbDates);
 
-    // Step 3: Check for missing or duplicate dates
     const fetchedDatesSet = new Set(fetchedDates);
     const dbDatesSet = new Set(dbDates);
 
