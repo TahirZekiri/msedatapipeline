@@ -1,51 +1,56 @@
-MSE Stock Data Processor
-Project Overview
-This project is designed to automate the collection and transformation of stock data from the Macedonian Stock Exchange. It demonstrates a Pipe and Filter architecture, where data is fetched, processed, and stored in MongoDB for analysis purposes. The application focuses on historical daily stock data over the last 10 years for all issuers.
+# MSE Stock Data Processor 
 
-Goals
-Automate Data Processing: Fetch daily stock data for each issuer on the Macedonian Stock Exchange (MSE) and store it in MongoDB.
-Pipe and Filter Architecture: Use filters to transform data in stages, ensuring that only necessary and correctly formatted data is retained.
-Performance Tracking: Implement a timer to measure the time taken for database population.
-Requirements
-This project is based on the requirements from the "Software Design and Architecture" course assignment.
+## Overview 
 
-Setup and Installation
-Prerequisites
-Docker and Docker Compose
-Node.js and npm
-MongoDB Compass (optional, for database viewing)
+This project automates the collection and transformation of Macedonian Stock Exchange data using a Pipe and Filter architecture. It fetches, processes, and stores daily stock data from the last 10 years for all issuers in MongoDB, making it ready for analysis.
 
-Step 1: Clone the Repository
-git clone <https://github.com/TahirZekiri/msedatapipeline>
-cd msedatapipeline/homework1
+## Goals
 
-Step 2: Start MongoDB with Docker Compose
-docker-compose up -d
-
-This will start a MongoDB instance at localhost:27017.
-
-Step 3: Install Node.js Dependencies
-npm install
-
-Step 4: Run the Pipeline
-Execute the pipeline with the following command:
-node src/main.js
+Automated Data Processing: Collect daily stock data for each issuer on MSE and store it in MongoDB.
+Pipe and Filter Design: Use staged filters to extract, check, and format data accurately.
+Performance Tracking: Measure and log processing time to populate the database.
 
 
-Explanation of Files and Code
-Key Scripts
-src/filter1.js: Scrapes issuer codes from the MSE website.
-src/filters/filter2.js: Checks the last available data date in MongoDB.
-src/filters/filter3.js: Fetches missing data from MSE based on the last available date.
-src/db.js: Establishes a MongoDB connection.
-src/main.js: Executes the pipeline in sequence.
-src/timer.js: Measures the time taken for database population.
+## Setup & Installation 
 
-MongoDB Compass (Optional for Viewing Data)
-Open MongoDB Compass and connect to mongodb://localhost:27017.
-Select the stockDB database to view stored collections.
+### Prerequisites:
+Docker and Docker Compose for MongoDB
 
-Running the Project with WebStorm
-If you are using WebStorm, you can set up Run/Debug configurations for main.js to run the pipeline with one click. This also makes it easier to debug and track variables throughout execution.
+Node.js and npm for running the pipeline
+MongoDB Compass (optional for viewing data)
 
-To measure the time taken for full database population, use the timer provided in src/timer.js. This will output the time in milliseconds.
+### Steps
+
+**Clone the Repository:**
+
+`git clone https://github.com/TahirZekiri/msedatapipeline`
+
+`cd msedatapipeline/homework1`
+
+**Start MongoDB:**
+`docker-compose up -d`
+
+MongoDB will be available at localhost:27017.
+
+**Install Dependencies:**
+`npm install`
+
+Run the Pipeline:
+`node src/main.js`
+
+## Key Files & Structure
+
+* **src/filter1.js**: Extracts issuer codes from the MSE site.
+* **src/filters/filter2.js**: Checks MongoDB for the last available data date.
+* **src/filters/filter3.js**: Retrieves missing data based on the last recorded date.
+* **src/db.js**: Connects to MongoDB.
+* **src/main.js**: Runs the pipeline.
+* **src/timer.js**: Measures and logs the execution time.
+
+#### Viewing Data in MongoDB (Optional)
+To view data in MongoDB Compass:
+
+Connect to `mongodb://localhost:27017`. 
+
+Select the stockDB database to see stored stock data.
+For quick debugging in WebStorm, set up Run configurations for main.js.
