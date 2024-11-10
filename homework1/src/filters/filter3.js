@@ -28,13 +28,19 @@ async function fetchDataWithRetries(url, params, maxRetries = 3, delay = 2000) {
     throw new Error(`Failed to fetch data from ${url} after ${maxRetries} retries.`);
 }
 
-async function filter3(issuer, fromDate, db) {
+async function filter3(issuer, startDate, db) {
     const toDate = new Date();
-    let currentFromDate = new Date(fromDate);
+
+    if (!startDate || startDate >= toDate) {
+        console.log(`No new data needed for ${issuer} as it is already up-to-date.`);
+        return;
+    }
+
+    let currentFromDate = new Date(startDate);
 
     while (currentFromDate < toDate) {
         let currentToDate = new Date(currentFromDate);
-        currentToDate.setFullYear(currentToDate.getFullYear() + 1);
+        currentToDate.setDate(currentToDate.getDate() + 364);
         if (currentToDate > toDate) currentToDate = new Date(toDate);
 
         const formattedFromDate = formatDate(currentFromDate);
@@ -62,19 +68,14 @@ async function filter3(issuer, fromDate, db) {
                     const volume = parseInt($(tds[6]).text().replace(/,/g, ''), 10) || 0;
                     const turnoverBest = parseFloat($(tds[7]).text().replace(/,/g, ''));
 
-                    const formattedLastTradePrice = isNaN(lastTradePrice) ? null : formatMacedonianNumber(lastTradePrice);
-                    const formattedMax = isNaN(max) ? null : formatMacedonianNumber(max);
-                    const formattedMin = isNaN(min) ? null : formatMacedonianNumber(min);
-                    const formattedTurnoverBest = isNaN(turnoverBest) ? null : formatMacedonianNumber(turnoverBest);
-
                     data.push({
                         issuer,
                         date,
-                        lastTradePrice: formattedLastTradePrice,
-                        max: formattedMax,
-                        min: formattedMin,
+                        lastTradePrice: isNaN(lastTradePrice) ? null : formatMacedonianNumber(lastTradePrice),
+                        max: isNaN(max) ? null : formatMacedonianNumber(max),
+                        min: isNaN(min) ? null : formatMacedonianNumber(min),
                         volume,
-                        turnoverBest: formattedTurnoverBest
+                        turnoverBest: isNaN(turnoverBest) ? null : formatMacedonianNumber(turnoverBest)
                     });
                 }
             });
@@ -83,7 +84,7 @@ async function filter3(issuer, fromDate, db) {
                 await db.collection("stockData").insertMany(data, { ordered: false });
                 console.log(`Data for ${issuer} from ${formattedFromDate} to ${formattedToDate} saved.`);
             } else {
-                console.log(`No data found for ${issuer} from ${formattedFromDate} to ${formattedToDate}.`);
+                console.log(`No new data to add for ${issuer} from ${formattedFromDate} to ${formattedToDate}.`);
             }
         } catch (error) {
             console.error(`Error fetching data for ${issuer} from ${formattedFromDate} to ${formattedToDate}:`, error.message);
