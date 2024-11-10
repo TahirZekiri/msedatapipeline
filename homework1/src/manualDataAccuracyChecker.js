@@ -14,8 +14,9 @@ function formatDate(date) {
 async function fetchData(issuer, startDate, endDate) {
     const data = [];
     let currentFromDate = new Date(startDate);
+    currentFromDate.setUTCHours(0, 0, 0, 0);
 
-    while (currentFromDate < endDate) {
+    while (currentFromDate <= endDate) {
         let currentToDate = new Date(currentFromDate);
         currentToDate.setDate(currentToDate.getDate() + 364);
         if (currentToDate > endDate) currentToDate = new Date(endDate);
@@ -38,8 +39,14 @@ async function fetchData(issuer, startDate, endDate) {
             tableRows.each((_, element) => {
                 const tds = $(element).find('td');
                 if (tds.length === 9) {
-                    const date = formatDate(new Date($(tds[0]).text().trim()));
-                    data.push(date);
+                    const parsedDateString = $(tds[0]).text().trim();
+                    const [month, day, year] = parsedDateString.split('/');
+                    const parsedDate = new Date(Date.UTC(year, month - 1, day));
+                    const date = formatDate(parsedDate);
+
+                    if (parsedDate >= currentFromDate && parsedDate <= currentToDate) {
+                        data.push(date);
+                    }
                 }
             });
         } catch (error) {
@@ -48,9 +55,9 @@ async function fetchData(issuer, startDate, endDate) {
 
         currentFromDate = new Date(currentToDate);
         currentFromDate.setDate(currentFromDate.getDate() + 1);
+        currentFromDate.setUTCHours(0, 0, 0, 0);
     }
-
-    return data;
+    return data.sort();
 }
 
 async function checkDatabaseDates(issuer, db) {
@@ -59,8 +66,7 @@ async function checkDatabaseDates(issuer, db) {
         .find({ issuer })
         .project({ date: 1, _id: 0 })
         .toArray();
-
-    return datesInDb.map(entry => entry.date);
+    return datesInDb.map(entry => entry.date).sort();
 }
 
 async function main() {
@@ -71,30 +77,31 @@ async function main() {
     const endDate = new Date();
     const startDate = new Date();
     startDate.setFullYear(endDate.getFullYear() - 10);
+    startDate.setUTCHours(0, 0, 0, 0);
 
     console.log(`Fetching data for issuer ${issuerCode} from ${startDate.toISOString().split("T")[0]} to ${endDate.toISOString().split("T")[0]}`);
 
     const fetchedDates = await fetchData(issuerCode, startDate, endDate);
-    console.log(`Fetched dates (${fetchedDates.length}):`, fetchedDates);
+    console.log(`All fetched dates (${fetchedDates.length}):`, fetchedDates);
 
     const dbDates = await checkDatabaseDates(issuerCode, db);
-    console.log(`Database dates (${dbDates.length}):`, dbDates);
+    console.log(`All database dates (${dbDates.length}):`, dbDates);
 
     const fetchedDatesSet = new Set(fetchedDates);
     const dbDatesSet = new Set(dbDates);
 
-    const missingDates = [...fetchedDatesSet].filter(date => !dbDatesSet.has(date));
-    const extraDates = [...dbDatesSet].filter(date => !fetchedDatesSet.has(date));
+    const missingDates = fetchedDates.filter(date => !dbDatesSet.has(date));
+    const extraDates = dbDates.filter(date => !fetchedDatesSet.has(date));
     const duplicateDates = dbDates.filter((date, index) => dbDates.indexOf(date) !== index);
 
     if (missingDates.length > 0) {
-        console.log("Missing dates in the database:", missingDates);
+        console.log("Missing dates in the database (present on website but not in DB):", missingDates);
     } else {
         console.log("No missing dates in the database.");
     }
 
     if (extraDates.length > 0) {
-        console.log("Extra dates in the database (not fetched):", extraDates);
+        console.log("Extra dates in the database (not fetched from website):", extraDates);
     } else {
         console.log("No extra dates in the database.");
     }

@@ -2,10 +2,6 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
 
-function formatMacedonianNumber(value) {
-    return value !== null ? value.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null;
-}
-
 function formatDate(date) {
     return date.toISOString().split("T")[0];
 }
@@ -32,7 +28,7 @@ async function filter3(issuer, startDate, db) {
     const toDate = new Date();
     toDate.setUTCHours(0, 0, 0, 0);
 
-    if (startDate >= toDate) {
+    if (!startDate || startDate >= toDate) {
         console.log(`No new data needed for ${issuer} as it is already up-to-date.`);
         return;
     }
@@ -40,15 +36,13 @@ async function filter3(issuer, startDate, db) {
     let currentFromDate = new Date(startDate);
     currentFromDate.setUTCHours(0, 0, 0, 0);
 
-    while (currentFromDate < toDate) {
+    while (currentFromDate <= toDate) {
         let currentToDate = new Date(currentFromDate);
         currentToDate.setDate(currentToDate.getDate() + 364);
         if (currentToDate > toDate) currentToDate = new Date(toDate);
-        currentToDate.setUTCHours(23, 59, 59, 999);
 
         const formattedFromDate = formatDate(currentFromDate);
         const formattedToDate = formatDate(currentToDate);
-        console.log(`Attempting to fetch data for ${issuer} from ${formattedFromDate} to ${formattedToDate}`);
 
         try {
             const response = await fetchDataWithRetries(
@@ -69,7 +63,6 @@ async function filter3(issuer, startDate, db) {
                     const parsedDate = new Date(Date.UTC(year, month - 1, day));
                     const date = formatDate(parsedDate);
 
-                    console.log(`Parsed date for ${issuer}: ${parsedDateString} -> ${date}`);
                     if (parsedDate >= currentFromDate && parsedDate <= currentToDate) {
                         const lastTradePrice = parseFloat($(tds[1]).text().replace(/,/g, ''));
                         const max = parseFloat($(tds[2]).text().replace(/,/g, ''));
@@ -80,14 +73,12 @@ async function filter3(issuer, startDate, db) {
                         data.push({
                             issuer,
                             date,
-                            lastTradePrice: isNaN(lastTradePrice) ? null : formatMacedonianNumber(lastTradePrice),
-                            max: isNaN(max) ? null : formatMacedonianNumber(max),
-                            min: isNaN(min) ? null : formatMacedonianNumber(min),
+                            lastTradePrice: isNaN(lastTradePrice) ? null : lastTradePrice,
+                            max: isNaN(max) ? null : max,
+                            min: isNaN(min) ? null : min,
                             volume,
-                            turnoverBest: isNaN(turnoverBest) ? null : formatMacedonianNumber(turnoverBest)
+                            turnoverBest: isNaN(turnoverBest) ? null : turnoverBest
                         });
-                    } else {
-                        console.log(`Skipping date out of range: ${date} for issuer: ${issuer}`);
                     }
                 }
             });
