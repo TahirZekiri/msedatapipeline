@@ -2,6 +2,10 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
 
+function formatMacedonianNumber(value) {
+    return value !== null ? value.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null;
+}
+
 function formatDate(date) {
     return date.toISOString().split("T")[0];
 }
@@ -73,11 +77,11 @@ async function filter3(issuer, startDate, db) {
                         data.push({
                             issuer,
                             date,
-                            lastTradePrice: isNaN(lastTradePrice) ? null : lastTradePrice,
-                            max: isNaN(max) ? null : max,
-                            min: isNaN(min) ? null : min,
+                            lastTradePrice: isNaN(lastTradePrice) ? null : formatMacedonianNumber(lastTradePrice),
+                            max: isNaN(max) ? null : formatMacedonianNumber(max),
+                            min: isNaN(min) ? null : formatMacedonianNumber(min),
                             volume,
-                            turnoverBest: isNaN(turnoverBest) ? null : turnoverBest
+                            turnoverBest: isNaN(turnoverBest) ? null : formatMacedonianNumber(turnoverBest)
                         });
                     }
                 }
