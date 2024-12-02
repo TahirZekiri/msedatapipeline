@@ -11,7 +11,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     return (
         <html lang="en">
         <body>
-        <div className="px-4 sm:px-6 lg:px-8"> {/* Responsive padding container */}
+        <div className="max-w-5xl mx-auto px-4"> {/* Responsive padding container */}
             <Navbar />
             <main className="py-8">{children}</main>
         </div>
