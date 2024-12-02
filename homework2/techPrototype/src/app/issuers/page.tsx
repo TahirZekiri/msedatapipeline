@@ -57,7 +57,7 @@ export default function IssuersPage() {
     ];
 
     return (
-        <div className="p-6">
+        <div>
             {/* Metrics and Dropdown Section */}
             <div className="grid grid-cols-2 sm:grid-cols-1 md:grid-cols-4 gap-6 mb-8 items-start">
                 {/* Market Volume */}
@@ -146,7 +146,7 @@ export default function IssuersPage() {
                 </div>
 
                 {/* Graph */}
-                <div className="p-4 bg-white shadow-md rounded-lg">
+                <div className="p-1 bg-white shadow-md rounded-lg">
                     <h2 className="text-xl font-semibold mb-4"></h2>
                     <Line data={graphData} />
                 </div>
