@@ -1,7 +1,7 @@
 // src/app/issuers/page.tsx
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -9,52 +9,60 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
 import { Chart as ChartJS, LineElement, CategoryScale, LinearScale, PointElement } from "chart.js";
 import { Line } from "react-chartjs-2";
+import {TbSquareRoundedChevronDownFilled} from "react-icons/tb";
 
 ChartJS.register(LineElement, CategoryScale, LinearScale, PointElement);
 
+interface StockData {
+    date: string;
+    issuer: string;
+    lastTradePrice: string;
+    max: string | null;
+    min: string | null;
+    turnoverBest: string;
+    volume: number;
+}
+
 export default function IssuersPage() {
-    const [selectedIssuer, setSelectedIssuer] = useState("Select Issuer");
-    const [selectedTimeframe, setSelectedTimeframe] = useState("This Year");
+    const [issuers, setIssuers] = useState<string[]>([]);
+    const [selectedIssuer, setSelectedIssuer] = useState<string>("KMB");
+    const [selectedTimeframe, setSelectedTimeframe] = useState<string>("This Year");
+    const [tableData, setTableData] = useState<StockData[]>([]);
+    const [graphData, setGraphData] = useState<{ labels: string[]; datasets: { label: string; data: number[]; borderColor: string; backgroundColor: string; tension: number }[] }>({
+        labels: [],
+        datasets: [],
+    });
 
-    // Manual data for the graph
-    const graphData = {
-        labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"],
-        datasets: [
-            {
-                label: "Price",
-                data: [290, 300, 310, 305, 315, 320, 330],
-                borderColor: "#4F46E5",
-                backgroundColor: "rgba(79, 70, 229, 0.3)",
-                tension: 0.4,
-            },
-            {
-                label: "Oscillator",
-                data: [50, 55, 60, 58, 65, 70, 72],
-                borderColor: "#EF4444",
-                backgroundColor: "rgba(239, 68, 68, 0.3)",
-                tension: 0.4,
-            },
-        ],
-    };
+    useEffect(() => {
+        fetch("http://localhost:5001/api/issuers")
+            .then((res) => res.json())
+            .then((data: string[]) => setIssuers(data))
+            .catch((err) => console.error(err));
+    }, []);
 
-    const tableData = [
-        { lastTrade: "290.00", min: "285.00", max: "295.00", turnover: "1,000,000", volume: "10,000" },
-        { lastTrade: "300.00", min: "295.00", max: "305.00", turnover: "1,200,000", volume: "12,000" },
-        { lastTrade: "310.00", min: "305.00", max: "315.00", turnover: "1,500,000", volume: "15,000" },
-        { lastTrade: "290.00", min: "285.00", max: "295.00", turnover: "1,000,000", volume: "10,000" },
-        { lastTrade: "300.00", min: "295.00", max: "305.00", turnover: "1,200,000", volume: "12,000" },
-        { lastTrade: "310.00", min: "305.00", max: "315.00", turnover: "1,500,000", volume: "15,000" },
-    ];
+    useEffect(() => {
+        fetch(`http://localhost:5001/api/stockData?issuer=${selectedIssuer}&timeframe=${selectedTimeframe}`)
+            .then((res) => res.json())
+            .then((data: StockData[]) => {
+                setTableData(data);
+
+                setGraphData({
+                    labels: data.map((d) => d.date),
+                    datasets: [
+                        {
+                            label: "Last Trade Price",
+                            data: data.map((d) => parseFloat(d.lastTradePrice.replace(",", "."))),
+                            borderColor: "#4F46E5",
+                            backgroundColor: "rgba(79, 70, 229, 0.3)",
+                            tension: 0.4,
+                        },
+                    ],
+                });
+            })
+            .catch((err) => console.error(err));
+    }, [selectedIssuer, selectedTimeframe]);
 
     return (
         <div>
@@ -83,18 +91,27 @@ export default function IssuersPage() {
                 </div>
 
                 {/* Issuer Dropdown */}
-                <div className="flex flex-col items-start md:items-start space-y-2 w-full">
+                <div className="flex flex-col items-start space-y-2 w-full">
                     <DropdownMenu>
                         <span className="text-gray-500 text-sm font-medium">Issuer</span>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full md:w-full max-w-sm justify-between">
+                            <Button variant="outline" className="w-full max-w-sm justify-between flex items-center">
                                 {selectedIssuer}
+                                <TbSquareRoundedChevronDownFilled className="ml-2 h-4 w-4 text-gray-700" /> {/* Chevron icon */}
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem onSelect={() => setSelectedIssuer("ALK")}>ALK</DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => setSelectedIssuer("KMB")}>KMB</DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => setSelectedIssuer("TMP")}>TMP</DropdownMenuItem>
+                        <DropdownMenuContent
+                            className="max-h-48 overflow-y-auto w-full max-w-sm"
+                            align="start"
+                            >
+                            {issuers.map((issuer) => (
+                                <DropdownMenuItem
+                                    key={issuer}
+                                    onSelect={() => setSelectedIssuer(issuer)}
+                                >
+                                    {issuer}
+                                </DropdownMenuItem>
+                            ))}
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
@@ -106,9 +123,12 @@ export default function IssuersPage() {
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" className="w-full md:w-full max-w-sm justify-between">
                                 {selectedTimeframe}
+                                <TbSquareRoundedChevronDownFilled className="ml-2 h-4 w-4 text-gray-700" /> {/* Chevron icon */}
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent>
+                        <DropdownMenuContent
+                        align="start"
+                        >
                             <DropdownMenuItem onSelect={() => setSelectedTimeframe("This Year")}>This Year</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => setSelectedTimeframe("This Month")}>This Month</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => setSelectedTimeframe("This Week")}>This Week</DropdownMenuItem>
@@ -120,35 +140,40 @@ export default function IssuersPage() {
             {/* Table and Graph Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
                 {/* Table */}
-                <div className="overflow-x-auto bg-white shadow-md rounded-lg">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Last Trade Price</TableHead>
-                                <TableHead>Min</TableHead>
-                                <TableHead>Max</TableHead>
-                                <TableHead>Turnover BEST</TableHead>
-                                <TableHead>Volume</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {tableData.map((row, index) => (
-                                <TableRow key={index}>
-                                    <TableCell>{row.lastTrade}</TableCell>
-                                    <TableCell>{row.min}</TableCell>
-                                    <TableCell>{row.max}</TableCell>
-                                    <TableCell>{row.turnover}</TableCell>
-                                    <TableCell>{row.volume}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                <div
+                    className="overflow-x-auto overflow-y-auto bg-white shadow-md rounded-lg"
+                    style={{maxHeight: "300px"}}
+                >
+                    <table className="relative w-full text-sm">
+                        {/* Table Header */}
+                        <thead className="sticky top-0 bg-gray-50 z-1 shadow-sm">
+                        <tr>
+                            <th className="px-4 py-2 whitespace-nowrap border-b border-gray-200">Last Trade Price</th>
+                            <th className="px-4 py-2 whitespace-nowrap border-b border-gray-200">Min</th>
+                            <th className="px-4 py-2 whitespace-nowrap border-b border-gray-200">Max</th>
+                            <th className="px-4 py-2 whitespace-nowrap border-b border-gray-200">Turnover BEST</th>
+                            <th className="px-4 py-2 whitespace-nowrap border-b border-gray-200">Volume</th>
+                        </tr>
+                        </thead>
+                        {/* Table Body */}
+                        <tbody>
+                        {tableData.map((row, index) => (
+                            <tr key={index} className="hover:bg-gray-50">
+                                <td className="px-4 py-2 border border-gray-200">{row.lastTradePrice}</td>
+                                <td className="px-4 py-2 border border-gray-200">{row.min || "-"}</td>
+                                <td className="px-4 py-2 border border-gray-200">{row.max || "-"}</td>
+                                <td className="px-4 py-2 border border-gray-200">{row.turnoverBest}</td>
+                                <td className="px-4 py-2 border border-gray-200">{row.volume}</td>
+                            </tr>
+                        ))}
+                        </tbody>
+                    </table>
                 </div>
 
                 {/* Graph */}
                 <div className="p-1 bg-white shadow-md rounded-lg">
                     <h2 className="text-xl font-semibold mb-4"></h2>
-                    <Line data={graphData} />
+                    <Line data={graphData}/>
                 </div>
             </div>
         </div>
