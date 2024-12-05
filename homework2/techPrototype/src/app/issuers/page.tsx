@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Chart as ChartJS, LineElement, CategoryScale, LinearScale, PointElement } from "chart.js";
-import { Line } from "react-chartjs-2";
+import LineChart from "@/components/lineChart"
 import {TbSquareRoundedChevronDownFilled} from "react-icons/tb";
 
 ChartJS.register(LineElement, CategoryScale, LinearScale, PointElement);
@@ -18,11 +18,28 @@ ChartJS.register(LineElement, CategoryScale, LinearScale, PointElement);
 interface StockData {
     date: string;
     issuer: string;
-    lastTradePrice: string;
+    lastTradePrice: string | null;
     max: string | null;
     min: string | null;
     turnoverBest: string;
     volume: number;
+}
+
+interface Metrics {
+    volume: {
+        value: number;
+        change: number;
+    };
+    turnover: {
+        value: number;
+        change: number;
+    };
+}
+
+function parseTurnover(value: string): number {
+    const noDots = value.replace(/\./g, "");
+    const normalized = noDots.replace(",", ".");
+    return parseFloat(normalized);
 }
 
 export default function IssuersPage() {
@@ -30,9 +47,17 @@ export default function IssuersPage() {
     const [selectedIssuer, setSelectedIssuer] = useState<string>("KMB");
     const [selectedTimeframe, setSelectedTimeframe] = useState<string>("This Year");
     const [tableData, setTableData] = useState<StockData[]>([]);
-    const [graphData, setGraphData] = useState<{ labels: string[]; datasets: { label: string; data: number[]; borderColor: string; backgroundColor: string; tension: number }[] }>({
+    const [graphData, setGraphData] = useState<{
+        labels: string[];
+        datasets: { label: string; data: number[]; borderColor: string; backgroundColor: string; tension: number }[];
+    }>({
         labels: [],
         datasets: [],
+    });
+
+    const [metrics, setMetrics] = useState<Metrics>({
+        volume: { value: 0, change: 0 },
+        turnover: { value: 0, change: 0 },
     });
 
     useEffect(() => {
@@ -45,23 +70,60 @@ export default function IssuersPage() {
     useEffect(() => {
         fetch(`http://localhost:5001/api/stockData?issuer=${selectedIssuer}&timeframe=${selectedTimeframe}`)
             .then((res) => res.json())
-            .then((data: StockData[]) => {
-                setTableData(data);
+            .then(({ currentData, previousData }: { currentData: StockData[], previousData: StockData[] }) => {
+                const reversedCurrentData = [...currentData].reverse();
+
+                const safeParsePrice = (price: string | null) => {
+                    const p = price ?? "0";
+                    return parseFloat(p.replace(",", "."));
+                };
+
+                setTableData(reversedCurrentData);
 
                 setGraphData({
-                    labels: data.map((d) => d.date),
+                    labels: currentData.map((d) => d.date),
                     datasets: [
                         {
-                            label: "Last Trade Price",
-                            data: data.map((d) => parseFloat(d.lastTradePrice.replace(",", "."))),
+                            label: "",
+                            data: currentData.map((d) => safeParsePrice(d.lastTradePrice)),
                             borderColor: "#4F46E5",
                             backgroundColor: "rgba(79, 70, 229, 0.3)",
                             tension: 0.4,
                         },
                     ],
                 });
+
+                const totalCurrentVolume = reversedCurrentData.reduce((acc, record) => acc + record.volume, 0);
+                const totalPreviousVolume = previousData.reduce((acc, record) => acc + record.volume, 0);
+
+                const volumeChange = (previousData.length > 0 && totalPreviousVolume !== 0)
+                    ? ((totalCurrentVolume - totalPreviousVolume) / totalPreviousVolume) * 100
+                    : 0;
+
+                const totalCurrentTurnover = reversedCurrentData.reduce((acc, record) => {
+                    return acc + parseTurnover(record.turnoverBest);
+                }, 0);
+
+                const totalPreviousTurnover = previousData.reduce((acc, record) => {
+                    return acc + parseTurnover(record.turnoverBest);
+                }, 0);
+
+                const turnoverChange = (previousData.length > 0 && totalPreviousTurnover !== 0)
+                    ? ((totalCurrentTurnover - totalPreviousTurnover) / totalPreviousTurnover) * 100
+                    : 0;
+
+                setMetrics({
+                    volume: {
+                        value: totalCurrentVolume,
+                        change: volumeChange,
+                    },
+                    turnover: {
+                        value: totalCurrentTurnover,
+                        change: turnoverChange,
+                    },
+                });
             })
-            .catch((err) => console.error(err));
+            .catch(console.error);
     }, [selectedIssuer, selectedTimeframe]);
 
     return (
@@ -71,21 +133,34 @@ export default function IssuersPage() {
                 {/* Market Volume */}
                 <div className="flex flex-col items-start space-y-2">
                     <span className="text-gray-500 text-sm font-medium">Market volume</span>
-                    <div className="flex items-center justify-between bg-black text-white px-4 py-3 rounded-lg text-lg font-bold relative w-full h-9 max-w-sm">
-                        <span className="truncate max-w-[70%]">2.200.123,00MKD</span>
-                        <div className="absolute right-1 top-1 bg-green-100 text-green-700 px-1 py-1 rounded-md text-sm font-semibold">
-                            +5.63%
+                    <div
+                        className="flex items-center justify-between bg-black text-white px-4 py-3 rounded-lg text-lg font-bold relative w-full h-9 max-w-sm">
+                        <span className="truncate max-w-[70%]">{metrics.volume.value.toLocaleString("mk-MK")}</span>
+                        <div
+                            className={`absolute right-1 top-1 px-1 py-1 rounded-md text-sm font-semibold ${
+                                metrics.volume.change >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                            }`}
+                        >
+                            {metrics.volume.change >= 0 ? "+" : ""}
+                            {metrics.volume.change.toFixed(2)}%
                         </div>
                     </div>
                 </div>
 
-                {/* Market Capitalization */}
+                {/* Market Turnover */}
                 <div className="flex flex-col items-start space-y-2">
-                    <span className="text-gray-500 text-sm font-medium">Market capitalization</span>
+                    <span className="text-gray-500 text-sm font-medium">Market Turnover</span>
                     <div className="flex items-center justify-between bg-black text-white px-4 py-3 rounded-lg text-lg font-bold relative w-full h-9 max-w-sm">
-                        <span className="truncate max-w-[70%]">20.324.451MKD</span>
-                        <div className="absolute right-1 top-1 bg-green-100 text-green-700 px-1 py-1 rounded-md text-sm font-semibold">
-                            +5.63%
+                    <span className="truncate max-w-[70%]">
+                        {metrics.turnover.value.toLocaleString("mk-MK", { style: "currency", currency: "MKD" })}
+                    </span>
+                        <div
+                            className={`absolute right-1 top-1 px-1 py-1 rounded-md text-sm font-semibold ${
+                                metrics.turnover.change >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                            }`}
+                        >
+                            {metrics.turnover.change >= 0 ? "+" : ""}
+                            {metrics.turnover.change.toFixed(2)}%
                         </div>
                     </div>
                 </div>
@@ -97,13 +172,14 @@ export default function IssuersPage() {
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" className="w-full max-w-sm justify-between flex items-center">
                                 {selectedIssuer}
-                                <TbSquareRoundedChevronDownFilled className="ml-2 h-4 w-4 text-gray-700" /> {/* Chevron icon */}
+                                <TbSquareRoundedChevronDownFilled
+                                    className="ml-2 h-4 w-4 text-gray-700"/>
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
                             className="max-h-48 overflow-y-auto w-full max-w-sm"
                             align="start"
-                            >
+                        >
                             {issuers.map((issuer) => (
                                 <DropdownMenuItem
                                     key={issuer}
@@ -123,15 +199,19 @@ export default function IssuersPage() {
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" className="w-full md:w-full max-w-sm justify-between">
                                 {selectedTimeframe}
-                                <TbSquareRoundedChevronDownFilled className="ml-2 h-4 w-4 text-gray-700" /> {/* Chevron icon */}
+                                <TbSquareRoundedChevronDownFilled
+                                    className="ml-2 h-4 w-4 text-gray-700"/>
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
-                        align="start"
+                            align="start"
                         >
-                            <DropdownMenuItem onSelect={() => setSelectedTimeframe("This Year")}>This Year</DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => setSelectedTimeframe("This Month")}>This Month</DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => setSelectedTimeframe("This Week")}>This Week</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setSelectedTimeframe("This Year")}>This
+                                Year</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setSelectedTimeframe("This Month")}>This
+                                Month</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setSelectedTimeframe("This Week")}>This
+                                Week</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
@@ -146,8 +226,9 @@ export default function IssuersPage() {
                 >
                     <table className="relative w-full text-sm">
                         {/* Table Header */}
-                        <thead className="sticky top-0 bg-gray-50 z-1 shadow-sm">
+                        <thead className="sticky top-0 bg-gray-50 z-10 shadow-sm">
                         <tr>
+                            <th className="px-4 py-2 whitespace-nowrap border-b border-gray-200">Date</th>
                             <th className="px-4 py-2 whitespace-nowrap border-b border-gray-200">Last Trade Price</th>
                             <th className="px-4 py-2 whitespace-nowrap border-b border-gray-200">Min</th>
                             <th className="px-4 py-2 whitespace-nowrap border-b border-gray-200">Max</th>
@@ -159,7 +240,10 @@ export default function IssuersPage() {
                         <tbody>
                         {tableData.map((row, index) => (
                             <tr key={index} className="hover:bg-gray-50">
-                                <td className="px-4 py-2 border border-gray-200">{row.lastTradePrice}</td>
+                                <td className="px-4 py-2 border border-gray-200">
+                                    {new Date(row.date).toLocaleDateString("en-GB")}
+                                </td>
+                                <td className="px-4 py-2 border border-gray-200">{row.lastTradePrice || "-"}</td>
                                 <td className="px-4 py-2 border border-gray-200">{row.min || "-"}</td>
                                 <td className="px-4 py-2 border border-gray-200">{row.max || "-"}</td>
                                 <td className="px-4 py-2 border border-gray-200">{row.turnoverBest}</td>
@@ -171,9 +255,11 @@ export default function IssuersPage() {
                 </div>
 
                 {/* Graph */}
-                <div className="p-1 bg-white shadow-md rounded-lg">
+                <div className="p-1 bg-white shadow-md rounded-lg"
+                     style={{height: "300px"}}
+                >
                     <h2 className="text-xl font-semibold mb-4"></h2>
-                    <Line data={graphData}/>
+                    <LineChart data={graphData}/>
                 </div>
             </div>
         </div>
