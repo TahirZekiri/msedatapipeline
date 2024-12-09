@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { TradingDataChart } from "@/components/tradingDataChart";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -9,11 +10,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Chart as ChartJS, LineElement, CategoryScale, LinearScale, PointElement } from "chart.js";
-import LineChart from "@/components/lineChart"
-import {TbSquareRoundedChevronDownFilled} from "react-icons/tb";
-
-ChartJS.register(LineElement, CategoryScale, LinearScale, PointElement);
+import { TbSquareRoundedChevronDownFilled } from "react-icons/tb";
 
 interface StockData {
     date: string;
@@ -23,6 +20,11 @@ interface StockData {
     min: string | null;
     turnoverBest: string;
     volume: number;
+    // Assume you add these fields or derive them:
+    open?: number;
+    high?: number;
+    low?: number;
+    close?: number;
 }
 
 interface Metrics {
@@ -47,18 +49,15 @@ export default function IssuersPage() {
     const [selectedIssuer, setSelectedIssuer] = useState<string>("KMB");
     const [selectedTimeframe, setSelectedTimeframe] = useState<string>("This Year");
     const [tableData, setTableData] = useState<StockData[]>([]);
-    const [graphData, setGraphData] = useState<{
-        labels: string[];
-        datasets: { label: string; data: number[]; borderColor: string; backgroundColor: string; tension: number }[];
-    }>({
-        labels: [],
-        datasets: [],
-    });
-
     const [metrics, setMetrics] = useState<Metrics>({
         volume: { value: 0, change: 0 },
         turnover: { value: 0, change: 0 },
     });
+
+    // New data structure formatted for the chart
+    const [chartData, setChartData] = useState<
+        { date: string; open: number; high: number; low: number; close: number; volume: number }[]
+    >([]);
 
     useEffect(() => {
         fetch("http://localhost:5001/api/issuers")
@@ -71,46 +70,67 @@ export default function IssuersPage() {
         fetch(`http://localhost:5001/api/stockData?issuer=${selectedIssuer}&timeframe=${selectedTimeframe}`)
             .then((res) => res.json())
             .then(({ currentData, previousData }: { currentData: StockData[], previousData: StockData[] }) => {
-                const reversedCurrentData = [...currentData].reverse();
-
+                // Sort currentData by date ascending
                 const safeParsePrice = (price: string | null) => {
                     const p = price ?? "0";
                     return parseFloat(p.replace(",", "."));
                 };
 
-                setTableData(reversedCurrentData);
-
-                setGraphData({
-                    labels: currentData.map((d) => d.date),
-                    datasets: [
-                        {
-                            label: "",
-                            data: currentData.map((d) => safeParsePrice(d.lastTradePrice)),
-                            borderColor: "#4F46E5",
-                            backgroundColor: "rgba(79, 70, 229, 0.3)",
-                            tension: 0.4,
-                        },
-                    ],
+                const sortedCurrentData = [...currentData].sort((a, b) => {
+                    return new Date(a.date).getTime() - new Date(b.date).getTime();
                 });
 
-                const totalCurrentVolume = reversedCurrentData.reduce((acc, record) => acc + record.volume, 0);
+// Remove duplicate times if any
+                const uniqueData = sortedCurrentData.filter((item, index, arr) => {
+                    return index === 0 || new Date(item.date).getTime() !== new Date(arr[index-1].date).getTime();
+                });
+
+// Log to ensure uniqueness
+                console.log("Unique Chart Data:", uniqueData);
+
+                setTableData([...uniqueData].reverse());
+
+                const candlestickData = uniqueData
+                    .map((d) => {
+                        const dateObj = new Date(d.date);
+                        if (isNaN(dateObj.getTime())) {
+                            console.error("Invalid date:", d.date);
+                            return null;
+                        }
+                        const y = dateObj.getUTCFullYear();
+                        const m = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+                        const day = String(dateObj.getUTCDate()).padStart(2, '0');
+                        const timeString = `${y}-${m}-${day}`; // YYYY-MM-DD
+
+                        return {
+                            time: timeString,
+                            open: safeParsePrice(d.lastTradePrice),
+                            high: safeParsePrice(d.max),
+                            low: safeParsePrice(d.min),
+                            close: safeParsePrice(d.lastTradePrice),
+                            volume: d.volume,
+                        };
+                    })
+                    .filter(Boolean);
+
+                setChartData(candlestickData);
+
+                // Metrics calculations can be done on sortedCurrentData (order doesn't matter for aggregate calculations)
+                const totalCurrentVolume = sortedCurrentData.reduce((acc, record) => acc + record.volume, 0);
                 const totalPreviousVolume = previousData.reduce((acc, record) => acc + record.volume, 0);
 
-                const volumeChange = (previousData.length > 0 && totalPreviousVolume !== 0)
-                    ? ((totalCurrentVolume - totalPreviousVolume) / totalPreviousVolume) * 100
-                    : 0;
+                const volumeChange =
+                    (previousData.length > 0 && totalPreviousVolume !== 0)
+                        ? ((totalCurrentVolume - totalPreviousVolume) / totalPreviousVolume) * 100
+                        : 0;
 
-                const totalCurrentTurnover = reversedCurrentData.reduce((acc, record) => {
-                    return acc + parseTurnover(record.turnoverBest);
-                }, 0);
+                const totalCurrentTurnover = sortedCurrentData.reduce((acc, record) => acc + parseTurnover(record.turnoverBest), 0);
+                const totalPreviousTurnover = previousData.reduce((acc, record) => acc + parseTurnover(record.turnoverBest), 0);
 
-                const totalPreviousTurnover = previousData.reduce((acc, record) => {
-                    return acc + parseTurnover(record.turnoverBest);
-                }, 0);
-
-                const turnoverChange = (previousData.length > 0 && totalPreviousTurnover !== 0)
-                    ? ((totalCurrentTurnover - totalPreviousTurnover) / totalPreviousTurnover) * 100
-                    : 0;
+                const turnoverChange =
+                    (previousData.length > 0 && totalPreviousTurnover !== 0)
+                        ? ((totalCurrentTurnover - totalPreviousTurnover) / totalPreviousTurnover) * 100
+                        : 0;
 
                 setMetrics({
                     volume: {
@@ -151,9 +171,9 @@ export default function IssuersPage() {
                 <div className="flex flex-col items-start space-y-2">
                     <span className="text-gray-500 text-sm font-medium">Market Turnover</span>
                     <div className="flex items-center justify-between bg-black text-white px-4 py-3 rounded-lg text-lg font-bold relative w-full h-9 max-w-sm">
-                    <span className="truncate max-w-[70%]">
-                        {metrics.turnover.value.toLocaleString("mk-MK", { style: "currency", currency: "MKD" })}
-                    </span>
+                        <span className="truncate max-w-[70%]">
+                            {metrics.turnover.value.toLocaleString("mk-MK", { style: "currency", currency: "MKD" })}
+                        </span>
                         <div
                             className={`absolute right-1 top-1 px-1 py-1 rounded-md text-sm font-semibold ${
                                 metrics.turnover.change >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
@@ -222,7 +242,7 @@ export default function IssuersPage() {
                 {/* Table */}
                 <div
                     className="overflow-x-auto overflow-y-auto bg-white shadow-md rounded-lg"
-                    style={{maxHeight: "300px"}}
+                    style={{maxHeight: "465px"}}
                 >
                     <table className="relative w-full text-sm">
                         {/* Table Header */}
@@ -254,12 +274,12 @@ export default function IssuersPage() {
                     </table>
                 </div>
 
-                {/* Graph */}
+                {/* New TradingView-Like Graph */}
                 <div className="p-1 bg-white shadow-md rounded-lg"
-                     style={{height: "300px"}}
+                     style={{height: "465px"}}
                 >
-                    <h2 className="text-xl font-semibold mb-4"></h2>
-                    <LineChart data={graphData}/>
+                    <h2 className="text-xl font-semibold mb-4">Price Chart</h2>
+                    <TradingDataChart data={chartData}/>
                 </div>
             </div>
         </div>
