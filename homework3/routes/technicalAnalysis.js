@@ -17,7 +17,6 @@ router.get("/", async (req, res) => {
             return res.status(400).json({ message: "Invalid period" });
         }
 
-        // Fetch and process data
         const stockData = await fetchStockData(db, issuer, periodStartDate, today);
         if (!stockData.length) {
             return res.status(404).json({ message: "No stock data found for the specified period." });
@@ -35,7 +34,6 @@ router.get("/", async (req, res) => {
     }
 });
 
-// Helper Functions
 function calculatePeriodStartDate(period) {
     const today = new Date();
     switch (period) {
@@ -47,9 +45,8 @@ function calculatePeriodStartDate(period) {
             const date = new Date(today);
             date.setMonth(date.getMonth() - 1);
 
-            // Ensure the resulting date does not overflow into the next month
             if (date.getDate() !== today.getDate()) {
-                date.setDate(0); // Set to last day of the previous month
+                date.setDate(0);
             }
             return date;
         }
@@ -109,11 +106,10 @@ function processIndicator(indicator, stockData) {
             return null;
     }
 
-    // Ensure consistent formatting of the result with "signal"
     return result.map((dataPoint) => ({
         date: dataPoint.date,
         value: dataPoint.value,
-        signal: dataPoint.signal || "Hold", // Default to "Hold" if no signal logic is present
+        signal: dataPoint.signal || "Hold",
     }));
 }
 
