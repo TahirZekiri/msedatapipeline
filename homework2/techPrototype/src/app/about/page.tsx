@@ -1,4 +1,4 @@
-import { FaLinkedin, FaEnvelope } from "react-icons/fa"; // Import LinkedIn and Email icons
+import { FaLinkedin, FaEnvelope } from "react-icons/fa";
 
 export default function About() {
     return (
@@ -18,7 +18,7 @@ export default function About() {
                     rel="noopener noreferrer"
                     className="text-blue-600 underline"
                 >
-                    FINKI's official website
+                    FINKI`&apos;s official website
                 </a>.
             </p>
 

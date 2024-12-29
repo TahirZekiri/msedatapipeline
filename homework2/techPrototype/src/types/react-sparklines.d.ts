@@ -11,7 +11,7 @@ declare module "react-sparklines" {
         preserveAspectRatio?: string;
         margin?: number;
         style?: React.CSSProperties;
-        children?: React.ReactNode; // Add this line to accept children
+        children?: React.ReactNode;
     }
 
     export interface SparklinesLineProps {

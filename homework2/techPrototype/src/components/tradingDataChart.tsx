@@ -3,14 +3,14 @@ import {
     createChart,
     IChartApi,
     ISeriesApi,
-    CandlestickData,
     HistogramData,
     BusinessDay,
     ColorType,
+    UTCTimestamp,
 } from "lightweight-charts";
 
 interface Candle {
-    time: BusinessDay;
+    time: BusinessDay | UTCTimestamp;
     open: number;
     high: number | null;
     low: number | null;
@@ -30,7 +30,6 @@ export const TradingDataChart: React.FC<TradingDataChartProps> = ({ data }) => {
 
     useEffect(() => {
         if (!chartContainerRef.current) return;
-
         const chart = createChart(chartContainerRef.current, {
             width: chartContainerRef.current.clientWidth,
             height: 400,
@@ -107,7 +106,17 @@ export const TradingDataChart: React.FC<TradingDataChartProps> = ({ data }) => {
                     return candle;
                 })
                 .filter((item, index, self) => index === 0 || item.time !== self[index - 1].time)
-                .sort((a, b) => (a.time as any) - (b.time as any));
+                .sort((a, b) => {
+                    const timeA =
+                        typeof a.time === "number"
+                            ? a.time
+                            : new Date(`${a.time.year}-${a.time.month}-${a.time.day}`).getTime() / 1000;
+                    const timeB =
+                        typeof b.time === "number"
+                            ? b.time
+                            : new Date(`${b.time.year}-${b.time.month}-${b.time.day}`).getTime() / 1000;
+                    return timeA - timeB;
+                });
 
             candleSeriesRef.current.setData(
                 processedData.map((candle) => ({

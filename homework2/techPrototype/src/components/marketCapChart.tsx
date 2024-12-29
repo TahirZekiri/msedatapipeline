@@ -14,7 +14,7 @@ import {
 } from "lightweight-charts";
 
 interface MarketCapPoint {
-    time: BusinessDay | string; // Use BusinessDay or ISO string
+    time: BusinessDay | string;
     value: number;
 }
 
@@ -35,7 +35,7 @@ export const MarketCapChart: React.FC<MarketCapChartProps> = ({ data, isLoading 
             width: chartContainerRef.current.clientWidth,
             height: 400,
             layout: {
-                background: { type: ColorType.Solid, color: "#ffffff" }, // Fixed: Use ColorType.Solid
+                background: { type: ColorType.Solid, color: "#ffffff" },
                 textColor: "#222",
                 fontSize: 12,
             },
@@ -98,7 +98,7 @@ export const MarketCapChart: React.FC<MarketCapChartProps> = ({ data, isLoading 
             let time: Time;
             if (typeof point.time === "string") {
                 const [year, month, day] = point.time.split("-").map(Number);
-                time = { year, month, day } as BusinessDay; // Fixed: Ensure time matches BusinessDay
+                time = { year, month, day } as BusinessDay;
             } else {
                 time = point.time as BusinessDay;
             }

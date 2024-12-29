@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -12,6 +12,11 @@ import { Button } from "@/components/ui/button";
 import { TbSquareRoundedChevronDownFilled } from "react-icons/tb";
 import { MarketCapChart } from "@/components/marketCapChart";
 import { SparklineChart } from "@/components/sparklineChart";
+
+interface CurrentData {
+    date: string;
+    capitalization: number;
+}
 
 interface MarketStats {
     marketVolume: number;
@@ -61,11 +66,11 @@ export default function Home() {
         volumePercentageChange: 0,
         capPercentageChange: 0,
     });
-    const [topGainers, setTopGainers] = useState<Gainer[]>([]);
     const [gainersChunks, setGainersChunks] = useState<Gainer[][]>([[], [], [], []]);
     const [carouselIndexes, setCarouselIndexes] = useState<number[]>(Array(9).fill(0));
     const [topGainersToday, setTopGainersToday] = useState<StockPerformance[]>([]);
     const [topLosersToday, setTopLosersToday] = useState<StockPerformance[]>([]);
+
     const fetchMarketData = async (timeframe: string) => {
         try {
             const response = await fetch(
@@ -80,29 +85,29 @@ export default function Home() {
             console.error("Error fetching market data:", error);
         }
     };
-
-    const fetchTopGainers = async (timeframe: string) => {
-        try {
-            const response = await fetch(
-                `http://localhost:5001/api/stockData/top-gainers?timeframe=${encodeURIComponent(
-                    timeframe
-                )}`
-            );
-            const data: Gainer[] = await response.json();
-
-            setTopGainers(data);
-
-            const chunked = chunkArray<Gainer>(data, 2);
-            while (chunked.length < 9) {
-                chunked.push([]);
+    const fetchTopGainers = useCallback(
+        async (timeframe: string) => {
+            try {
+                const response = await fetch(
+                    `http://localhost:5001/api/stockData/top-gainers?timeframe=${encodeURIComponent(
+                        timeframe
+                    )}`
+                );
+                const data: Gainer[] = await response.json();
+                const chunked = chunkArray<Gainer>(data, 2);
+                while (chunked.length < 9) {
+                    chunked.push([]);
+                }
+                setGainersChunks(chunked.slice(0, 9));
+                setIsLoading(false);
+                setCarouselIndexes(Array(9).fill(0));
+            } catch (error) {
+                console.error("Error fetching top gainers:", error);
             }
-            setGainersChunks(chunked.slice(0, 9));
-            setIsLoading(false);
-            setCarouselIndexes(Array(9).fill(0));
-        } catch (error) {
-            console.error("Error fetching top gainers:", error);
-        }
-    };
+        },
+        []
+    );
+
     const fetchMarketCapitalizationData = async (timeframe: string) => {
         try {
             const response = await fetch(
@@ -111,7 +116,7 @@ export default function Home() {
                 )}`
             );
             const data = await response.json();
-            const formattedData: ChartData[] = data.currentData.map((item: any) => ({
+            const formattedData: ChartData[] = data.currentData.map((item: CurrentData) => ({
                 time: item.date,
                 value: item.capitalization,
             }));
@@ -120,11 +125,13 @@ export default function Home() {
             console.error("Error fetching market capitalization data:", error);
         }
     };
+
     useEffect(() => {
         fetchMarketData(selectedTimeframe);
         fetchTopGainers(selectedTimeframe);
         fetchMarketCapitalizationData(selectedTimeframe);
-    }, [selectedTimeframe]);
+    }, [selectedTimeframe, fetchTopGainers]);
+
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -137,7 +144,6 @@ export default function Home() {
                 console.error("Error fetching top gainers and losers:", error);
             }
         };
-
         fetchData();
     }, []);
 
@@ -155,21 +161,16 @@ export default function Home() {
         return () => clearInterval(interval);
     }, [gainersChunks]);
 
-    const formatRoundedPercentage = (value: number | null | undefined) => {
-        if (value == null) return "N/A";
-        return Math.round(value) + "%";
-    };
     return (
         <div>
-            {/* Top Bar: Market Stats, Timeframe, etc. */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 {/* Market Volume */}
                 <div className="flex flex-col">
                     <span className="text-gray-500 text-sm font-medium">Market Volume</span>
                     <div className="flex items-center bg-black text-white px-4 py-2 rounded-md text-base font-bold h-10 relative">
-                        <span className="truncate">
-                            {marketStats.marketVolume.toLocaleString("en-US")} MKD
-                        </span>
+            <span className="truncate">
+              {marketStats.marketVolume.toLocaleString("en-US")} MKD
+            </span>
                         <div
                             className={`absolute right-1 top-1 px-1 py-2 text-xs font-semibold rounded-md ${
                                 marketStats.volumePercentageChange >= 0
@@ -185,13 +186,11 @@ export default function Home() {
 
                 {/* Market Capitalization */}
                 <div className="flex flex-col">
-                    <span className="text-gray-500 text-sm font-medium">
-                        Market Capitalization
-                    </span>
+                    <span className="text-gray-500 text-sm font-medium">Market Capitalization</span>
                     <div className="flex items-center bg-black text-white px-4 py-2 rounded-md text-base font-bold h-10 relative">
-                        <span className="truncate">
-                            {marketStats.marketCap.toLocaleString("en-US")} MKD
-                        </span>
+            <span className="truncate">
+              {marketStats.marketCap.toLocaleString("en-US")} MKD
+            </span>
                         <div
                             className={`absolute right-1 top-1 px-1 py-2 text-xs font-semibold rounded-md ${
                                 marketStats.capPercentageChange >= 0
@@ -207,9 +206,7 @@ export default function Home() {
 
                 {/* Most Traded Stock */}
                 <div className="flex flex-col">
-                    <span className="text-gray-500 text-sm font-medium">
-                        Most Traded Stock
-                    </span>
+                    <span className="text-gray-500 text-sm font-medium">Most Traded Stock</span>
                     <div className="flex items-center bg-black text-white px-4 py-2 rounded-md text-base font-bold h-10">
                         {mostTradedStock ? (
                             <>
@@ -264,18 +261,12 @@ export default function Home() {
                                 <div className="w-full h-6 bg-gray-300 mb-4 rounded" />
                                 <div className="w-1/2 h-8 bg-gray-300 mb-4 rounded" />
                                 <div className="mt-auto">
-                                    <SparklineChart
-                                        data={[]}
-                                        isLoading
-                                        width={120}
-                                        height={30}
-                                    />
+                                    <SparklineChart data={[]} isLoading width={120} height={30} />
                                 </div>
                             </Card>
                         ))
                         : gainersChunks.map((chunk, chunkIndex) => {
                             const currentIndex = carouselIndexes[chunkIndex];
-                            // 'item' is a single Gainer from the chunk
                             const item = chunk[currentIndex];
 
                             return (
@@ -284,22 +275,18 @@ export default function Home() {
                                     className="rounded-xl shadow-sm border border-gray-200 flex flex-col p-4"
                                 >
                                     <div className="flex flex-col items-start mb-2">
-                                          <span className="text-gray-400 text-sm font-medium">
-                                              {item?._id ?? "N/A"}
-                                          </span>
+                      <span className="text-gray-400 text-sm font-medium">
+                        {item?._id ?? "N/A"}
+                      </span>
                                         <span className="text-3xl font-semibold text-black mt-1">
-                                              {item?.percentageGain != null
-                                                  ? `${Math.round(item.percentageGain)}%`
-                                                  : "N/A"}
-                                          </span>
+                        {item?.percentageGain != null
+                            ? `${Math.round(item.percentageGain)}%`
+                            : "N/A"}
+                      </span>
                                     </div>
                                     <div className="mt-auto">
                                         <SparklineChart
-                                            data={
-                                                item?.dailyPrices?.map(
-                                                    (p: { price: number }) => p.price
-                                                ) || []
-                                            }
+                                            data={item?.dailyPrices?.map((p) => p.price) || []}
                                             color="blue"
                                             width={120}
                                             height={30}
@@ -334,7 +321,6 @@ export default function Home() {
                         {isLoading ? (
                             <div className="rounded-xl shadow-sm border border-gray-200 flex flex-col p-4 animate-pulse"></div>
                         ) : topLosersToday.length === 0 ? (
-                            // Display message if no losers are returned
                             <div className="text-gray-500 text-center font-medium">
                                 There are no losers today.
                             </div>
@@ -346,21 +332,15 @@ export default function Home() {
                                         className="p-4 flex flex-col justify-between border shadow-sm"
                                     >
                                         <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-gray-500">
-                                    {loser._id}
-                                </span>
+                                            <span className="text-sm font-medium text-gray-500">{loser._id}</span>
                                             <span className="text-xl font-bold">
-                                    {loser.percentageChange.toFixed(2)}%
-                                </span>
+                        {loser.percentageChange.toFixed(2)}%
+                      </span>
                                         </div>
                                         {/* Sparkline for each loser */}
                                         <div className="mt-2">
                                             <SparklineChart
-                                                data={
-                                                    loser?.dailyPrices?.map(
-                                                        (p: { price: number }) => p.price
-                                                    ) || []
-                                                }
+                                                data={loser?.dailyPrices?.map((p) => p.price) || []}
                                                 color="red"
                                                 width={100}
                                                 height={30}
@@ -389,21 +369,15 @@ export default function Home() {
                                         className="p-4 flex flex-col justify-between border shadow-sm"
                                     >
                                         <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-gray-500">
-                                    {gainer._id}
-                                </span>
+                                            <span className="text-sm font-medium text-gray-500">{gainer._id}</span>
                                             <span className="text-xl font-bold">
-                                    {gainer.percentageChange.toFixed(2)}%
-                                </span>
+                        {gainer.percentageChange.toFixed(2)}%
+                      </span>
                                         </div>
                                         {/* Sparkline for each gainer */}
                                         <div className="mt-2">
                                             <SparklineChart
-                                                data={
-                                                    gainer?.dailyPrices?.map(
-                                                        (p: { price: number }) => p.price
-                                                    ) || []
-                                                }
+                                                data={gainer?.dailyPrices?.map((p) => p.price) || []}
                                                 color="green"
                                                 width={100}
                                                 height={30}
