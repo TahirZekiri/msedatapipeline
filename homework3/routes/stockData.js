@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
+// Existing API endpoint - Leave as is
 router.get("/", async (req, res) => {
     const { issuer, timeframe } = req.query;
     const db = req.db;
@@ -54,5 +55,667 @@ router.get("/", async (req, res) => {
         res.status(500).json({ message: "Error fetching stock data" });
     }
 });
+
+router.get("/most-traded-stock", async (req, res) => {
+    const { timeframe } = req.query;
+    const db = req.db;
+
+    if (!timeframe) {
+        return res.status(400).json({ message: "Missing required parameters" });
+    }
+
+    try {
+        const now = new Date();
+        let currentStartDate, currentEndDate;
+        let previousStartDate, previousEndDate;
+
+        // Determine current and previous timeframes
+        if (timeframe === "This Year") {
+            currentStartDate = new Date(now.getFullYear(), 0, 1);
+            currentEndDate = new Date();
+            previousStartDate = new Date(now.getFullYear() - 1, 0, 1);
+            previousEndDate = new Date(now.getFullYear(), 0, 0); // last day of previous year
+        } else if (timeframe === "This Month") {
+            currentStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            currentEndDate = new Date();
+            previousStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            previousEndDate = new Date(now.getFullYear(), now.getMonth(), 0); // last day of previous month
+        } else if (timeframe === "This Week") {
+            const dayOfWeek = now.getDay();
+            // Current week starts at Sunday (0) by default; adjust as needed based on definition of "week start"
+            const currentWeekStart = new Date(now);
+            currentWeekStart.setDate(now.getDate() - dayOfWeek);
+            currentStartDate = currentWeekStart;
+            currentEndDate = new Date();
+
+            const previousWeekEnd = new Date(currentWeekStart);
+            previousWeekEnd.setDate(previousWeekEnd.getDate() - 1);
+
+            const previousWeekStart = new Date(previousWeekEnd);
+            previousWeekStart.setDate(previousWeekStart.getDate() - 6);
+
+            previousStartDate = previousWeekStart;
+            previousEndDate = previousWeekEnd;
+        } else {
+            return res.status(400).json({ message: "Invalid timeframe" });
+        }
+
+        // Common pipeline stages for formatting
+        const commonPipeline = [
+            {
+                $addFields: {
+                    priceWithoutThousands: {
+                        $replaceAll: {
+                            input: "$lastTradePrice",
+                            find: ".",
+                            replacement: ""
+                        }
+                    }
+                }
+            },
+            {
+                $addFields: {
+                    priceFormatted: {
+                        $replaceAll: {
+                            input: "$priceWithoutThousands",
+                            find: ",",
+                            replacement: "."
+                        }
+                    }
+                }
+            },
+            {
+                $addFields: {
+                    numericPrice: { $toDouble: "$priceFormatted" },
+                    numericVolume: { $toInt: "$volume" }
+                }
+            }
+        ];
+
+        const currentMatchStage = {
+            $match: {
+                date: {
+                    $gte: currentStartDate.toISOString().split("T")[0],
+                    $lte: currentEndDate.toISOString().split("T")[0],
+                },
+            },
+        };
+
+        const previousMatchStage = {
+            $match: {
+                date: {
+                    $gte: previousStartDate.toISOString().split("T")[0],
+                    $lte: previousEndDate.toISOString().split("T")[0],
+                },
+            },
+        };
+
+        const aggregationGroupStage = {
+            $group: {
+                _id: "$issuer",
+                totalVolume: { $sum: "$numericVolume" },
+                totalMarketCap: { $sum: { $multiply: ["$numericPrice", "$numericVolume"] } }
+            },
+        };
+
+        const aggregationAllGroupStage = {
+            $group: {
+                _id: null,
+                totalMarketVolume: { $sum: "$numericVolume" },
+                totalMarketCap: { $sum: { $multiply: ["$numericPrice", "$numericVolume"] } }
+            },
+        };
+
+        // Most traded pipeline (current)
+        const mostTradedPipeline = [
+            currentMatchStage,
+            ...commonPipeline,
+            aggregationGroupStage,
+            { $sort: { totalVolume: -1 } },
+            { $limit: 1 },
+        ];
+        const currentMostTraded = await db.collection("stockData").aggregate(mostTradedPipeline).toArray();
+
+        // Market stats pipeline (current)
+        const marketPipelineCurrent = [
+            currentMatchStage,
+            ...commonPipeline,
+            aggregationAllGroupStage,
+        ];
+        const currentMarketDataArr = await db.collection("stockData").aggregate(marketPipelineCurrent).toArray();
+        const currentMarketData = currentMarketDataArr[0] || { totalMarketVolume: 0, totalMarketCap: 0 };
+
+        // Market stats pipeline (previous)
+        const marketPipelinePrevious = [
+            previousMatchStage,
+            ...commonPipeline,
+            aggregationAllGroupStage,
+        ];
+        const previousMarketDataArr = await db.collection("stockData").aggregate(marketPipelinePrevious).toArray();
+        const previousMarketData = previousMarketDataArr[0] || { totalMarketVolume: 0, totalMarketCap: 0 };
+
+        // Compute percentage differences
+        const previousVolume = previousMarketData.totalMarketVolume || 0;
+        const currentVolume = currentMarketData.totalMarketVolume || 0;
+        const previousCap = previousMarketData.totalMarketCap || 0;
+        const currentCap = currentMarketData.totalMarketCap || 0;
+
+        const volumePercentageChange = previousVolume === 0
+            ? 0
+            : ((currentVolume - previousVolume) / previousVolume) * 100;
+
+        const capPercentageChange = previousCap === 0
+            ? 0
+            : ((currentCap - previousCap) / previousCap) * 100;
+
+        const mostTradedStock = currentMostTraded[0] || null;
+
+        res.json({
+            mostTradedStock,
+            marketStats: {
+                marketVolume: currentVolume,
+                marketCap: currentCap,
+                volumePercentageChange,
+                capPercentageChange,
+            },
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching most traded stock and market stats" });
+    }
+});
+
+router.get("/marketCapData", async (req, res) => {
+    const { timeframe } = req.query;
+    const db = req.db;
+
+    if (!timeframe) {
+        return res.status(400).json({ message: "Missing required parameters" });
+    }
+
+    try {
+        const now = new Date();
+        let currentStartDate, currentEndDate;
+
+        // Determine the current timeframe
+        if (timeframe === "This Year") {
+            currentStartDate = new Date(now.getFullYear(), 0, 1);
+            currentEndDate = now;
+        } else if (timeframe === "This Month") {
+            currentStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            currentEndDate = now;
+        } else if (timeframe === "This Week") {
+            const dayOfWeek = now.getDay();
+            const currentWeekStart = new Date(now);
+            currentWeekStart.setDate(now.getDate() - dayOfWeek);
+            currentStartDate = currentWeekStart;
+            currentEndDate = now;
+        } else {
+            return res.status(400).json({ message: "Invalid timeframe" });
+        }
+
+        // Aggregation pipeline
+        const marketCapDataPipeline = [
+            {
+                $match: {
+                    date: {
+                        $gte: currentStartDate.toISOString().split("T")[0],
+                        $lte: currentEndDate.toISOString().split("T")[0],
+                    },
+                },
+            },
+            {
+                $addFields: {
+                    // Replace invalid characters in `lastTradePrice`
+                    sanitizedPrice: {
+                        $replaceAll: {
+                            input: "$lastTradePrice",
+                            find: ".",
+                            replacement: "",
+                        },
+                    },
+                },
+            },
+            {
+                $addFields: {
+                    sanitizedPrice: {
+                        $replaceAll: {
+                            input: "$sanitizedPrice",
+                            find: ",",
+                            replacement: ".",
+                        },
+                    },
+                },
+            },
+            {
+                $addFields: {
+                    numericPrice: {
+                        $convert: {
+                            input: "$sanitizedPrice",
+                            to: "double",
+                            onError: null, // Handle invalid conversion gracefully
+                            onNull: null, // Handle null values gracefully
+                        },
+                    },
+                    numericVolume: {
+                        $convert: {
+                            input: "$volume",
+                            to: "int",
+                            onError: 0, // Default to 0 if invalid
+                            onNull: 0, // Default to 0 if null
+                        },
+                    },
+                },
+            },
+            {
+                $addFields: {
+                    capitalization: {
+                        $multiply: ["$numericPrice", "$numericVolume"],
+                    },
+                },
+            },
+            {
+                $group: {
+                    _id: "$date",
+                    totalCapitalization: { $sum: "$capitalization" },
+                },
+            },
+            { $sort: { _id: 1 } }, // Sort by date
+        ];
+
+        const marketCapData = await db.collection("stockData").aggregate(marketCapDataPipeline).toArray();
+
+        // Format the response data
+        const formattedData = marketCapData.map((item) => ({
+            date: item._id,
+            capitalization: item.totalCapitalization || 0,
+        }));
+
+        res.json({ currentData: formattedData });
+    } catch (error) {
+        console.error("Error fetching market capitalization data:", error);
+        res.status(500).json({ message: "Error fetching market capitalization data" });
+    }
+});
+
+router.get("/top-gainers", async (req, res) => {
+    const { timeframe } = req.query;
+    const db = req.db;
+
+    if (!timeframe) {
+        return res.status(400).json({ message: "Missing required parameters" });
+    }
+
+    try {
+        const now = new Date();
+        let currentStartDate, currentEndDate;
+        let previousStartDate, previousEndDate;
+
+        if (timeframe === "This Year") {
+            currentStartDate = new Date(now.getFullYear(), 0, 1);
+            currentEndDate = new Date();
+            previousStartDate = new Date(now.getFullYear() - 1, 0, 1);
+            previousEndDate = new Date(now.getFullYear(), 0, 0);
+        } else if (timeframe === "This Month") {
+            currentStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            currentEndDate = new Date();
+            previousStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            previousEndDate = new Date(now.getFullYear(), now.getMonth(), 0);
+        } else if (timeframe === "This Week") {
+            const dayOfWeek = now.getDay();
+            const currentWeekStart = new Date(now);
+            currentWeekStart.setDate(now.getDate() - dayOfWeek);
+            currentStartDate = currentWeekStart;
+            currentEndDate = new Date();
+
+            const previousWeekEnd = new Date(currentWeekStart);
+            previousWeekEnd.setDate(previousWeekEnd.getDate() - 1);
+
+            const previousWeekStart = new Date(previousWeekEnd);
+            previousWeekStart.setDate(previousWeekStart.getDate() - 6);
+
+            previousStartDate = previousWeekStart;
+            previousEndDate = previousWeekEnd;
+        } else {
+            return res.status(400).json({ message: "Invalid timeframe" });
+        }
+
+        const commonPipeline = [
+            {
+                $addFields: {
+                    priceWithoutThousands: {
+                        $replaceAll: { input: "$lastTradePrice", find: ".", replacement: "" },
+                    },
+                },
+            },
+            {
+                $addFields: {
+                    priceFormatted: {
+                        $replaceAll: { input: "$priceWithoutThousands", find: ",", replacement: "." },
+                    },
+                },
+            },
+            {
+                $addFields: {
+                    numericPrice: { $toDouble: "$priceFormatted" },
+                },
+            },
+        ];
+
+        const currentPipeline = [
+            {
+                $match: {
+                    date: {
+                        $gte: currentStartDate.toISOString().split("T")[0],
+                        $lte: currentEndDate.toISOString().split("T")[0],
+                    },
+                },
+            },
+            ...commonPipeline,
+            {
+                $group: {
+                    _id: "$issuer",
+                    currentPrice: { $last: "$numericPrice" },
+                },
+            },
+        ];
+
+        const currentData = await db.collection("stockData").aggregate(currentPipeline).toArray();
+
+        const previousPipeline = [
+            {
+                $match: {
+                    date: {
+                        $gte: previousStartDate.toISOString().split("T")[0],
+                        $lte: previousEndDate.toISOString().split("T")[0],
+                    },
+                },
+            },
+            ...commonPipeline,
+            {
+                $group: {
+                    _id: "$issuer",
+                    previousPrice: { $last: "$numericPrice" },
+                },
+            },
+        ];
+
+        const previousData = await db.collection("stockData").aggregate(previousPipeline).toArray();
+
+        const dailyDataPipeline = [
+            {
+                $match: {
+                    date: {
+                        $gte: currentStartDate.toISOString().split("T")[0],
+                        $lte: currentEndDate.toISOString().split("T")[0],
+                    },
+                },
+            },
+            ...commonPipeline,
+            {
+                $group: {
+                    _id: "$issuer",
+                    dailyPrices: { $push: { date: "$date", price: "$numericPrice" } },
+                },
+            },
+        ];
+
+        const dailyData = await db.collection("stockData").aggregate(dailyDataPipeline).toArray();
+
+        const gainers = currentData.map((cur) => {
+            const prev = previousData.find((p) => p._id === cur._id);
+            const daily = dailyData.find((d) => d._id === cur._id);
+
+            const currentPrice = cur.currentPrice || 0;
+            const previousPrice = prev?.previousPrice || 0;
+
+            let percentageGain = 0;
+            if (previousPrice !== 0) {
+                percentageGain = ((currentPrice - previousPrice) / previousPrice) * 100;
+            }
+
+            return {
+                _id: cur._id,
+                currentPrice,
+                previousPrice,
+                percentageGain,
+                dailyPrices: daily?.dailyPrices || [],
+            };
+        });
+
+        const top18Gainers = gainers.sort((a, b) => b.percentageGain - a.percentageGain).slice(0, 18);
+
+        res.json(top18Gainers);
+    } catch (error) {
+        console.error("Error fetching top gainers:", error);
+        res.status(500).json({ message: "Error fetching top gainers" });
+    }
+});
+
+router.get("/top-gainers-losers", async (req, res) => {
+    const db = req.db;
+
+    try {
+        // 1) Get the two most recent distinct dates in the collection.
+        const distinctDates = await db.collection("stockData").distinct("date");
+        if (!distinctDates.length) {
+            return res.status(404).json({ message: "No data available" });
+        }
+        distinctDates.sort(); // e.g. ["2023-09-01", "2023-09-02", ...] ascending
+        const lastTwoDates = distinctDates.slice(-2);
+        const [previousDate, latestDate] =
+            lastTwoDates.length === 2
+                ? lastTwoDates
+                : [lastTwoDates[0], lastTwoDates[0]];
+
+        // 2) Pipeline to gather current/previous day prices for each issuer
+        const mainPipeline = [
+            // Match only these two most recent dates
+            {
+                $match: {
+                    date: { $in: lastTwoDates },
+                },
+            },
+            // Convert lastTradePrice to a numericPrice
+            {
+                $addFields: {
+                    priceWithoutThousands: {
+                        $replaceAll: {
+                            input: "$lastTradePrice",
+                            find: ".",
+                            replacement: "",
+                        },
+                    },
+                },
+            },
+            {
+                $addFields: {
+                    priceFormatted: {
+                        $replaceAll: {
+                            input: "$priceWithoutThousands",
+                            find: ",",
+                            replacement: ".",
+                        },
+                    },
+                },
+            },
+            {
+                $addFields: {
+                    numericPrice: { $toDouble: "$priceFormatted" },
+                },
+            },
+            // Group by issuer and collect all (date, numericPrice)
+            {
+                $group: {
+                    _id: "$issuer",
+                    prices: {
+                        $push: {
+                            date: "$date",
+                            numericPrice: "$numericPrice",
+                        },
+                    },
+                },
+            },
+        ];
+
+        const rawResults = await db
+            .collection("stockData")
+            .aggregate(mainPipeline)
+            .toArray();
+
+        // 3) For daily sparkline data, match a larger timeframe if desired.
+        //    For simplicity, let's say we take the last 30 days or so.
+        //    (Alternatively, you can match the entire DB or a specific timeframe.)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const dailyPipeline = [
+            {
+                $match: {
+                    date: {
+                        $gte: thirtyDaysAgo.toISOString().split("T")[0],
+                        // or perhaps up to 'latestDate'; or everything
+                    },
+                },
+            },
+            // Repeat the numeric conversion steps
+            {
+                $addFields: {
+                    priceWithoutThousands: {
+                        $replaceAll: {
+                            input: "$lastTradePrice",
+                            find: ".",
+                            replacement: "",
+                        },
+                    },
+                },
+            },
+            {
+                $addFields: {
+                    priceFormatted: {
+                        $replaceAll: {
+                            input: "$priceWithoutThousands",
+                            find: ",",
+                            replacement: ".",
+                        },
+                    },
+                },
+            },
+            {
+                $addFields: {
+                    numericPrice: { $toDouble: "$priceFormatted" },
+                },
+            },
+            // Group by issuer, gather an array of dailyPrices
+            {
+                $group: {
+                    _id: "$issuer",
+                    dailyPrices: {
+                        $push: {
+                            date: "$date",
+                            price: "$numericPrice",
+                        },
+                    },
+                },
+            },
+        ];
+
+        const dailyResults = await db
+            .collection("stockData")
+            .aggregate(dailyPipeline)
+            .toArray();
+
+        // 4) Merge dailyPrices into the main results
+        const resultsWithChange = rawResults.map((item) => {
+            // Identify current/previous from the two known dates
+            let currentPrice = 0;
+            let previousPrice = 0;
+
+            item.prices.forEach((p) => {
+                if (p.date === latestDate) {
+                    currentPrice = p.numericPrice || 0;
+                } else if (p.date === previousDate) {
+                    previousPrice = p.numericPrice || 0;
+                }
+            });
+
+            // Calculate percentageChange
+            let percentageChange = 0;
+            if (previousPrice !== 0) {
+                percentageChange =
+                    ((currentPrice - previousPrice) / previousPrice) * 100;
+            }
+
+            // Attach dailyPrices from the dailyResults (if any)
+            const foundDaily = dailyResults.find((d) => d._id === item._id);
+            const dailyPrices = foundDaily?.dailyPrices || [];
+
+            return {
+                _id: item._id,
+                currentPrice,
+                previousPrice,
+                percentageChange,
+                dailyPrices,
+            };
+        });
+
+        // 5) Now separate into positive gainers, zero-percent, and losers
+        const positiveGainers = resultsWithChange.filter(
+            (d) => d.percentageChange > 0
+        );
+        const zeroPercent = resultsWithChange.filter(
+            (d) => d.percentageChange === 0
+        );
+        const losers = resultsWithChange.filter(
+            (d) => d.percentageChange < 0
+        );
+
+        // Sort each category
+        positiveGainers.sort(
+            (a, b) => b.percentageChange - a.percentageChange
+        );
+        zeroPercent.sort((a, b) => b.currentPrice - a.currentPrice);
+        losers.sort((a, b) => a.percentageChange - b.percentageChange);
+
+        // 6) Build final 6 top gainers
+        let topGainers = [...positiveGainers];
+
+        // If fewer than 6 are positive, fill in from zero-percent
+        if (topGainers.length < 6) {
+            const needed = 6 - topGainers.length;
+            topGainers = topGainers.concat(zeroPercent.slice(0, needed));
+        }
+        // Pad if still fewer than 6
+        while (topGainers.length < 6) {
+            topGainers.push({
+                _id: "N/A",
+                currentPrice: 0,
+                previousPrice: 0,
+                percentageChange: 0,
+                dailyPrices: [],
+            });
+        }
+        // Slice if we have more than 6
+        topGainers = topGainers.slice(0, 6);
+
+        // 7) Build final 6 top losers
+        const topLosers = losers.slice(0, 6).map((loser) => {
+            // Same structure
+            return {
+                ...loser,
+            };
+        });
+
+        return res.json({
+            topGainers,
+            topLosers,
+        });
+    } catch (error) {
+        console.error("Error fetching top gainers and losers:", error);
+        return res
+            .status(500)
+            .json({ message: "Error fetching top gainers and losers" });
+    }
+});
+
 
 module.exports = router;

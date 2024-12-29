@@ -45,6 +45,7 @@ async function runPipeline() {
 
     const issuersRoutes = require("../../homework3/routes/issuers");
     const stockDataRoutes = require("../../homework3/routes/stockData");
+    const technicalAnalysisRoutes = require("../../homework3/routes/technicalAnalysis");
 
     app.use("/api/issuers", (req, res, next) => {
         req.db = db;
@@ -55,6 +56,11 @@ async function runPipeline() {
         req.db = db;
         next();
     }, stockDataRoutes);
+
+    app.use("/api/technicalAnalysis", (req, res, next) => {
+        req.db = db;
+        next();
+    }, technicalAnalysisRoutes);
 
     const PORT = process.env.PORT || 5001;
     app.listen(PORT, () => {
