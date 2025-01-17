@@ -7,8 +7,6 @@ import {
     CrosshairMode,
     IChartApi,
     ISeriesApi,
-    SeriesMarker,
-    CandlestickData,
     UTCTimestamp,
 } from "lightweight-charts";
 import {
@@ -105,42 +103,29 @@ export default function TechnicalAnalysisChart({
         candlestickSeriesRef.current = candlestickSeries;
         if (chartData.length > 0) {
             candlestickSeries.setData(
-                chartData.map((c) => {
-                    const dataPoint: CandlestickData = {
-                        time: c.time,
-                        open: c.open,
-                        high: c.high,
-                        low: c.low,
-                        close: c.close,
-                    };
-                    return dataPoint;
-                })
+                chartData.map((c) => ({
+                    time: c.time,
+                    open: c.open,
+                    high: c.high,
+                    low: c.low,
+                    close: c.close,
+                }))
             );
             const first = chartData[0].time;
             const last = chartData[chartData.length - 1].time;
             chart.timeScale().setVisibleRange({ from: first, to: last });
         }
-        const markers: SeriesMarker<UTCTimestamp>[] = signals.map((signal) => {
-            let shape: SeriesMarker<UTCTimestamp>["shape"] = "arrowUp";
-            let color = "#4caf50";
 
-            if (signal.type === "Sell") {
-                shape = "arrowDown";
-                color = "#f44336";
-            } else if (signal.type === "Hold") {
-                shape = "circle";
-                color = "#ffeb3b";
-            }
-
-            return {
+        candlestickSeries.setMarkers(
+            signals.map((signal) => ({
                 time: signal.time,
                 position: signal.type === "Buy" ? "belowBar" : "aboveBar",
-                color,
-                shape,
+                color: signal.type === "Buy" ? "#4caf50" : signal.type === "Sell" ? "#f44336" : "#ffeb3b",
+                shape: signal.type === "Buy" ? "arrowUp" : signal.type === "Sell" ? "arrowDown" : "circle",
                 text: `${signal.type} @ ${signal.price.toFixed(2)}`,
-            };
-        });
-        candlestickSeries.setMarkers(markers);
+            }))
+        );
+
         const handleResize = () => {
             if (!chartContainerRef.current) return;
             chart.applyOptions({ width: chartContainerRef.current.clientWidth });
@@ -152,35 +137,31 @@ export default function TechnicalAnalysisChart({
             chart.remove();
         };
     }, [chartData, signals]);
+
     const latestIndicator = indicatorData[indicatorData.length - 1] ?? null;
-    const secondLastIndicator =
-        indicatorData.length > 1 ? indicatorData[indicatorData.length - 2] : null;
+    const secondLastIndicator = indicatorData.length > 1 ? indicatorData[indicatorData.length - 2] : null;
     let directionArrow = "";
     if (latestIndicator && secondLastIndicator) {
-        directionArrow =
-            latestIndicator.value >= secondLastIndicator.value ? " ▲" : " ▼";
+        directionArrow = latestIndicator.value >= secondLastIndicator.value ? " ▲" : " ▼";
     }
     const suggestionText = latestIndicator
         ? `${latestIndicator.signal} stocks. (Last signal on ${latestIndicator.date})`
         : `No suggestions available for the selected timeframe (${selectedPeriod}).`;
-    const isGreen =
-        latestIndicator && secondLastIndicator
-            ? latestIndicator.value >= secondLastIndicator.value
-            : false;
+
+    const isGreen = latestIndicator && secondLastIndicator
+        ? latestIndicator.value >= secondLastIndicator.value
+        : false;
 
     return (
-        <div className="flex flex-col md:flex-row items-start">
-            {/* Chart container */}
-            <div ref={chartContainerRef} className="w-full h-96 p-2" />
-
-            {/* Right side panel */}
-            <div className="space-y-4 border rounded-lg p-2 m-2">
+        <div className="flex flex-col md:flex-row md:gap-6">
+            {/* Right-side panel */}
+            <div className="order-1 md:order-2 w-full md:w-1/3 mb-4 md:mb-0 space-y-4 border rounded-lg p-4">
                 {/* Title */}
                 <h2 className="text-xl font-bold text-gray-800">Technical Analysis</h2>
 
                 {/* Indicator Dropdown */}
                 <div>
-                    <p className="text-sm font-medium text-gray-600">Indicator:</p>
+                    <p className="text-sm font-medium text-gray-600 mb-1">Indicator:</p>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" className="w-full justify-between">
@@ -203,13 +184,10 @@ export default function TechnicalAnalysisChart({
 
                 {/* Timeframe Dropdown */}
                 <div>
-                    <p className="text-sm font-medium text-gray-600">Timeframe:</p>
+                    <p className="text-sm font-medium text-gray-600 mb-1">Timeframe:</p>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button
-                                variant="outline"
-                                className="w-full justify-between flex items-center"
-                            >
+                            <Button variant="outline" className="w-full justify-between">
                                 {selectedPeriod}
                                 <TbSquareRoundedChevronDownFilled className="ml-2 h-4 w-4 text-gray-700" />
                             </Button>
@@ -229,36 +207,29 @@ export default function TechnicalAnalysisChart({
 
                 {/* Current Indicator Value */}
                 <div className="border-t pt-4">
-                    <p className="text-sm font-medium text-gray-600">Current Indicator Value</p>
-                    <div className="flex justify-between mt-2 border border-gray-400 rounded-lg p-2">
+                    <p className="text-sm font-medium text-gray-600 mb-2">Current Indicator Value</p>
+                    <div className="flex justify-between items-center border border-gray-400 rounded-lg p-2">
                         <span className="font-bold text-gray-800">{selectedIndicator}</span>
                         <span className={`font-bold ${isGreen ? "text-green-600" : "text-red-600"}`}>
-              {latestIndicator
-                  ? latestIndicator.value.toFixed(2) + directionArrow
-                  : "/"}
-            </span>
-                    </div>
-
-                    {/* % Change row */}
-                    <div className="mt-2 flex justify-between text-gray-600 border border-gray-400 rounded-lg p-2">
-                        <span className="font-medium">Change:</span>
-                        <span className={`font-bold ${isGreen ? "text-green-600" : "text-red-600"}`}>
-              {latestIndicator && secondLastIndicator
-                  ? (
-                  ((latestIndicator.value - secondLastIndicator.value) /
-                      secondLastIndicator.value) *
-                  100
-              ).toFixed(2) + "%"
-                  : "/"}
-            </span>
+                            {latestIndicator ? latestIndicator.value.toFixed(2) + directionArrow : "/"}
+                        </span>
                     </div>
                 </div>
 
                 {/* Suggestion Section */}
                 <div className="border-t pt-4">
-                    <p className="text-sm font-medium text-gray-600">Suggestion</p>
-                    <p className="mt-2 font-bold text-gray-800">{suggestionText}</p>
+                    <p className="text-sm font-medium text-gray-600 mb-2">Suggestion</p>
+                    <p className="font-bold text-gray-800">{suggestionText}</p>
                 </div>
+            </div>
+
+            {/* Chart Container */}
+            <div className="order-2 md:order-1 w-full md:w-2/3 bg-white shadow-md rounded-lg p-4" style={{ height: "465px" }}>
+                {chartData.length === 0 ? (
+                    <div className="flex justify-center items-center h-full animate-pulse bg-gray-200 rounded"></div>
+                ) : (
+                    <div ref={chartContainerRef} className="w-full h-full"></div>
+                )}
             </div>
         </div>
     );

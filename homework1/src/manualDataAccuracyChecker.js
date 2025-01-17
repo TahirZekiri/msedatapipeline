@@ -1,3 +1,5 @@
+//This code is used to run it manually just to check any missing data, so if the stock data wasn't fetched properly.
+//Not necessary, so this file can be deleted.
 const axios = require("axios");
 const cheerio = require("cheerio");
 const { MongoClient } = require("mongodb");

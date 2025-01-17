@@ -170,9 +170,9 @@ export default function Home() {
                     <span className="text-gray-500 text-sm font-medium">Market Volume</span>
                     <div
                         className="flex items-center bg-black text-white px-4 py-2 rounded-md text-base font-bold h-10 relative">
-            <span className="truncate">
-              {marketStats.marketVolume.toLocaleString("en-US")} MKD
-            </span>
+                        <span className="truncate">
+                          {marketStats.marketVolume.toLocaleString("en-US")} MKD
+                        </span>
                         <div
                             className={`absolute right-1 top-1 px-1 py-2 text-xs font-semibold rounded-md ${
                                 marketStats.volumePercentageChange >= 0
@@ -191,9 +191,9 @@ export default function Home() {
                     <span className="text-gray-500 text-sm font-medium">Market Capitalization</span>
                     <div
                         className="flex items-center bg-black text-white px-4 py-2 rounded-md text-base font-bold h-10 relative">
-            <span className="truncate">
-              {marketStats.marketCap.toLocaleString("en-US")} MKD
-            </span>
+                        <span className="truncate">
+                          {marketStats.marketCap.toLocaleString("en-US")} MKD
+                        </span>
                         <div
                             className={`absolute right-1 top-1 px-1 py-2 text-xs font-semibold rounded-md ${
                                 marketStats.capPercentageChange >= 0

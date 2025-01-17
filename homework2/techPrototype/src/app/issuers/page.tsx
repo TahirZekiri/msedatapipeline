@@ -149,31 +149,37 @@ export default function IssuersPage() {
                 if (data && data.length > 0) {
                     setIndicatorData(data);
                 } else {
-                    console.warn("No indicator data available for the selected parameters.");
                     setIndicatorData([]); // Reset the indicator data if no data is returned(this will handle errors better)
                 }
             })
-            .catch((err) => {
-                console.error("Failed to fetch indicator data:", err);
+            .catch(() => {
                 setIndicatorData([]); // Reset to an empty array on error(this will handle errors better)
             });
     }, [selectedIssuer, selectedIndicator, selectedIndicatorPeriod]);
+
+    const [formattedTurnover, setFormattedTurnover] = useState("");
+    useEffect(() => {
+        const turnoverString = metrics.turnover.value.toLocaleString("mk-MK", {
+            style: "currency",
+            currency: "MKD",
+        });
+        setFormattedTurnover(turnoverString);
+    }, [metrics]);
     return (
         <div>
-            <div className="grid grid-cols-2 sm:grid-cols-1 md:grid-cols-4 gap-6 mb-8 items-start">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 {/* Market Volume */}
-                <div className="flex flex-col items-start space-y-2">
-                    <span className="text-gray-500 text-sm font-medium">Market volume</span>
+                <div className="flex flex-col">
+                    <span className="text-gray-500 text-sm font-medium">Market Volume</span>
                     <div
-                        className="flex items-center justify-between bg-black text-white px-4 py-3 rounded-lg text-lg font-bold relative w-full h-9 max-w-sm"
-                    >
-            <span className="truncate max-w-[70%]">
-              {metrics.volume.value.toLocaleString("mk-MK")}
-            </span>
+                        className="flex items-center bg-black text-white px-4 py-2 rounded-md text-base font-bold h-10 relative">
+                        <span className="truncate">
+                          {metrics.volume.value.toLocaleString("mk-MK")}
+                        </span>
                         <div
-                            className={`absolute right-1 top-1 px-1 py-1 rounded-md text-sm font-semibold ${
+                            className={`absolute right-1 top-1 px-1 py-2 text-xs font-semibold rounded-md ${
                                 metrics.volume.change >= 0
-                                    ? "bg-customGreen text-green-700"
+                                    ? "bg-customGreen text-green-800"
                                     : "bg-red-100 text-red-700"
                             }`}
                         >
@@ -184,23 +190,17 @@ export default function IssuersPage() {
                 </div>
 
                 {/* Market Turnover */}
-                <div className="flex flex-col items-start space-y-2">
-          <span className="text-gray-500 text-sm font-medium">
-            Market Turnover
-          </span>
+                <div className="flex flex-col">
+                    <span className="text-gray-500 text-sm font-medium">Market Turnover</span>
                     <div
-                        className="flex items-center justify-between bg-black text-white px-4 py-3 rounded-lg text-lg font-bold relative w-full h-9 max-w-sm"
-                    >
-            <span className="truncate max-w-[70%]">
-              {metrics.turnover.value.toLocaleString("mk-MK", {
-                  style: "currency",
-                  currency: "MKD",
-              })}
-            </span>
+                        className="flex items-center bg-black text-white px-4 py-2 rounded-md text-base font-bold h-10 relative">
+                        <span className="truncate">
+                            {formattedTurnover || metrics.turnover.value}
+                        </span>
                         <div
-                            className={`absolute right-1 top-1 px-1 py-1 rounded-md text-sm font-semibold ${
+                            className={`absolute right-1 top-1 px-1 py-2 text-xs font-semibold rounded-md ${
                                 metrics.turnover.change >= 0
-                                    ? "bg-customGreen text-green-700"
+                                    ? "bg-customGreen text-green-800"
                                     : "bg-red-100 text-red-700"
                             }`}
                         >
@@ -211,22 +211,19 @@ export default function IssuersPage() {
                 </div>
 
                 {/* Issuer Dropdown */}
-                <div className="flex flex-col items-start space-y-2 w-full">
+                <div className="flex flex-col">
+                    <span className="text-gray-500 text-sm font-medium">Issuer</span>
                     <DropdownMenu>
-                        <span className="text-gray-500 text-sm font-medium">Issuer</span>
                         <DropdownMenuTrigger asChild>
                             <Button
                                 variant="outline"
-                                className="w-full max-w-sm justify-between flex items-center"
+                                className="flex items-center justify-between px-4 py-2 rounded-md h-10 w-full text-base"
                             >
                                 {selectedIssuer}
-                                <TbSquareRoundedChevronDownFilled className="ml-2 h-4 w-4 text-gray-700" />
+                                <TbSquareRoundedChevronDownFilled className="ml-2 h-4 w-4 text-gray-700"/>
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                            className="max-h-48 overflow-y-auto w-full max-w-sm"
-                            align="start"
-                        >
+                        <DropdownMenuContent align="start" className="max-h-48 overflow-y-auto">
                             {issuers.map((issuer) => (
                                 <DropdownMenuItem
                                     key={issuer}
@@ -240,18 +237,16 @@ export default function IssuersPage() {
                 </div>
 
                 {/* Timeframe Dropdown */}
-                <div className="flex flex-col items-start md:items-start space-y-2 w-full">
+                <div className="flex flex-col">
+                    <span className="text-gray-500 text-sm font-medium">Timeframe</span>
                     <DropdownMenu>
-            <span className="text-gray-500 text-sm font-medium">
-              Timeframe
-            </span>
                         <DropdownMenuTrigger asChild>
                             <Button
                                 variant="outline"
-                                className="w-full md:w-full max-w-sm justify-between"
+                                className="flex items-center justify-between px-4 py-2 rounded-md h-10 w-full text-base"
                             >
                                 {selectedTimeframe}
-                                <TbSquareRoundedChevronDownFilled className="ml-2 h-4 w-4 text-gray-700" />
+                                <TbSquareRoundedChevronDownFilled className="ml-2 h-4 w-4 text-gray-700"/>
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start">
@@ -274,7 +269,7 @@ export default function IssuersPage() {
                 {/* TABLE */}
                 <div
                     className="overflow-x-auto overflow-y-auto bg-white shadow-md rounded-lg"
-                    style={{ maxHeight: "465px" }}
+                    style={{height: "465px"}}
                 >
                     <table className="relative w-full text-sm">
                         <thead className="sticky top-0 bg-gray-50 z-10 shadow-sm">
@@ -300,44 +295,96 @@ export default function IssuersPage() {
                         </tr>
                         </thead>
                         <tbody>
-                        {tableData.map((row, index) => (
-                            <tr key={index} className="hover:bg-gray-50">
-                                <td className="px-4 py-2 border border-gray-200">
-                                    {new Date(row.date).toLocaleDateString("en-GB")}
-                                </td>
-                                <td className="px-4 py-2 border border-gray-200">
-                                    {row.lastTradePrice || "-"}
-                                </td>
-                                <td className="px-4 py-2 border border-gray-200">
-                                    {row.min || "-"}
-                                </td>
-                                <td className="px-4 py-2 border border-gray-200">
-                                    {row.max || "-"}
-                                </td>
-                                <td className="px-4 py-2 border border-gray-200">
-                                    {row.turnoverBest}
-                                </td>
-                                <td className="px-4 py-2 border border-gray-200">
-                                    {row.volume}
+                        {tableData.length === 0 ? (
+                            Array.from({length: 13}).map((_, index) => (
+                                <tr key={`loading-row-${index}`} className="animate-pulse">
+                                    <td className="px-4 py-2 border border-gray-200">
+                                        <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                                    </td>
+                                    <td className="px-4 py-2 border border-gray-200">
+                                        <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+                                    </td>
+                                    <td className="px-4 py-2 border border-gray-200">
+                                        <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+                                    </td>
+                                    <td className="px-4 py-2 border border-gray-200">
+                                        <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+                                    </td>
+                                    <td className="px-4 py-2 border border-gray-200">
+                                        <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                                    </td>
+                                    <td className="px-4 py-2 border border-gray-200">
+                                        <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                                    </td>
+                                </tr>
+                            ))
+                        ) : tableData.length > 0 ? (
+                            // Rendering table rows after data is available
+                            tableData.map((row, index) => (
+                                <tr key={index} className="hover:bg-gray-50">
+                                    <td className="px-4 py-2 border border-gray-200">
+                                        {new Date(row.date).toLocaleDateString("en-GB")}
+                                    </td>
+                                    <td className="px-4 py-2 border border-gray-200">
+                                        {row.lastTradePrice || "-"}
+                                    </td>
+                                    <td className="px-4 py-2 border border-gray-200">
+                                        {row.min || "-"}
+                                    </td>
+                                    <td className="px-4 py-2 border border-gray-200">
+                                        {row.max || "-"}
+                                    </td>
+                                    <td className="px-4 py-2 border border-gray-200">
+                                        {row.turnoverBest}
+                                    </td>
+                                    <td className="px-4 py-2 border border-gray-200">
+                                        {row.volume}
+                                    </td>
+                                </tr>
+                            ))
+                        ) : (
+                            <tr>
+                                <td
+                                    colSpan={6}
+                                    className="px-4 py-2 text-center text-gray-500 border border-gray-200"
+                                >
+                                    No data available
                                 </td>
                             </tr>
-                        ))}
+                        )}
                         </tbody>
                     </table>
                 </div>
 
                 {/* CANDLESTICK CHART */}
                 <div className="p-1 bg-white shadow-md rounded-lg" style={{ height: "465px" }}>
-                    <h2 className="text-xl font-semibold mb-4">Price Chart</h2>
-                    <TradingDataChart data={chartData} />
+                    {chartData.length === 0 ? (
+                        <>
+                            <div className="bg-gray-200 h-10 w-2/5 mb-4 rounded"></div>
+                            <div className="h-full flex items-center justify-center">
+                                {/* Loading Skeleton */}
+                                <div className="w-full h-full animate-pulse">
+                                    <div className="bg-gray-200 h-96 w-full mx-auto rounded"></div>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <h2 className="text-xl font-semibold mb-4">Price Chart</h2>
+                            <TradingDataChart data={chartData}/>
+                        </>
+                    )}
                 </div>
+
             </div>
 
             {/* Technical Analysis Chart (with signals, side panel, etc.) */}
             <div className="mt-8">
                 <div
                     className="p-1 border border-gray-400 rounded-lg"
-                    style={{ height: "480px" }}
+                    style={{
+                        height: window.innerWidth < 640 ? "900px" : "480px",
+                    }}
                 >
                     <TechnicalAnalysisChart
                         chartData={chartData}
