@@ -146,9 +146,17 @@ export default function IssuersPage() {
                 return res.json();
             })
             .then((data: IndicatorData[]) => {
-                setIndicatorData(data);
+                if (data && data.length > 0) {
+                    setIndicatorData(data);
+                } else {
+                    console.warn("No indicator data available for the selected parameters.");
+                    setIndicatorData([]); // Reset the indicator data if no data is returned(this will handle errors better)
+                }
             })
-            .catch((err) => console.error("Failed to fetch indicator data:", err));
+            .catch((err) => {
+                console.error("Failed to fetch indicator data:", err);
+                setIndicatorData([]); // Reset to an empty array on error(this will handle errors better)
+            });
     }, [selectedIssuer, selectedIndicator, selectedIndicatorPeriod]);
     return (
         <div>

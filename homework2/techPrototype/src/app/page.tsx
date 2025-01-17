@@ -1,3 +1,4 @@
+// the index/home page
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
@@ -167,7 +168,8 @@ export default function Home() {
                 {/* Market Volume */}
                 <div className="flex flex-col">
                     <span className="text-gray-500 text-sm font-medium">Market Volume</span>
-                    <div className="flex items-center bg-black text-white px-4 py-2 rounded-md text-base font-bold h-10 relative">
+                    <div
+                        className="flex items-center bg-black text-white px-4 py-2 rounded-md text-base font-bold h-10 relative">
             <span className="truncate">
               {marketStats.marketVolume.toLocaleString("en-US")} MKD
             </span>
@@ -187,7 +189,8 @@ export default function Home() {
                 {/* Market Capitalization */}
                 <div className="flex flex-col">
                     <span className="text-gray-500 text-sm font-medium">Market Capitalization</span>
-                    <div className="flex items-center bg-black text-white px-4 py-2 rounded-md text-base font-bold h-10 relative">
+                    <div
+                        className="flex items-center bg-black text-white px-4 py-2 rounded-md text-base font-bold h-10 relative">
             <span className="truncate">
               {marketStats.marketCap.toLocaleString("en-US")} MKD
             </span>
@@ -207,7 +210,8 @@ export default function Home() {
                 {/* Most Traded Stock */}
                 <div className="flex flex-col">
                     <span className="text-gray-500 text-sm font-medium">Most Traded Stock</span>
-                    <div className="flex items-center bg-black text-white px-4 py-2 rounded-md text-base font-bold h-10">
+                    <div
+                        className="flex items-center bg-black text-white px-4 py-2 rounded-md text-base font-bold h-10">
                         {mostTradedStock ? (
                             <>
                                 <span className="truncate">{mostTradedStock._id}</span>
@@ -232,7 +236,7 @@ export default function Home() {
                                 className="flex items-center justify-between px-4 py-2 rounded-md h-10 w-full text-base"
                             >
                                 {selectedTimeframe}
-                                <TbSquareRoundedChevronDownFilled className="ml-2 h-4 w-4 text-gray-700" />
+                                <TbSquareRoundedChevronDownFilled className="ml-2 h-4 w-4 text-gray-700"/>
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start">
@@ -250,18 +254,19 @@ export default function Home() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-10 gap-4 mt-4">
-                <div className="grid grid-cols-3 col-span-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-10 gap-4 mt-4">
+                {/* Left Section: Gainers */}
+                <div className="grid grid-cols-3 sm:grid-cols-2 md:grid-cols-3 lg:col-span-4 gap-4">
                     {isLoading
-                        ? Array.from({ length: 9 }).map((_, idx) => (
+                        ? Array.from({length: 9}).map((_, idx) => (
                             <Card
                                 key={idx}
                                 className="rounded-xl shadow-sm border border-gray-200 flex flex-col p-4 animate-pulse"
                             >
-                                <div className="w-full h-6 bg-gray-300 mb-4 rounded" />
-                                <div className="w-1/2 h-8 bg-gray-300 mb-4 rounded" />
+                                <div className="w-full h-6 bg-gray-300 mb-4 rounded"/>
+                                <div className="w-1/2 h-8 bg-gray-300 mb-4 rounded"/>
                                 <div className="mt-auto">
-                                    <SparklineChart data={[]} isLoading width={120} height={30} />
+                                    <SparklineChart data={[]} isLoading width={120} height={30}/>
                                 </div>
                             </Card>
                         ))
@@ -275,14 +280,14 @@ export default function Home() {
                                     className="rounded-xl shadow-sm border border-gray-200 flex flex-col p-4"
                                 >
                                     <div className="flex flex-col items-start mb-2">
-                      <span className="text-gray-400 text-sm font-medium">
-                        {item?._id ?? "N/A"}
-                      </span>
+                            <span className="text-gray-400 text-sm font-medium">
+                                {item?._id ?? "N/A"}
+                            </span>
                                         <span className="text-3xl font-semibold text-black mt-1">
-                        {item?.percentageGain != null
-                            ? `${Math.round(item.percentageGain)}%`
-                            : "N/A"}
-                      </span>
+                                {item?.percentageGain != null
+                                    ? `${Math.round(item.percentageGain)}%`
+                                    : "N/A"}
+                            </span>
                                     </div>
                                     <div className="mt-auto">
                                         <SparklineChart
@@ -297,18 +302,19 @@ export default function Home() {
                         })}
                 </div>
 
-                {/* Right side: 6 col with the Market Capitalization Chart */}
-                <div className="col-span-6">
+                {/* Right Section: Market Capitalization Chart */}
+                <div className="col-span-1 md:col-span-2 lg:col-span-6">
                     <Card className="h-full">
                         <CardHeader>
                             <CardTitle>Market Capitalization Chart</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <MarketCapChart data={chartData} isLoading={isLoading} />
+                            <MarketCapChart data={chartData} isLoading={isLoading}/>
                         </CardContent>
                     </Card>
                 </div>
             </div>
+
 
             {/* Top Losers and Gainers Section */}
             <div className="mt-4 grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -319,7 +325,17 @@ export default function Home() {
                     </CardHeader>
                     <CardContent>
                         {isLoading ? (
-                            <div className="rounded-xl shadow-sm border border-gray-200 flex flex-col p-4 animate-pulse"></div>
+                            <div className="grid grid-cols-3 gap-4">
+                                {Array.from({length: 6}).map((_, idx) => (
+                                    <Card
+                                        key={`loser-skeleton-${idx}`}
+                                        className="p-4 flex flex-col justify-between border shadow-sm animate-pulse"
+                                    >
+                                        <div className="h-4 bg-gray-300 rounded w-2/3 mb-4"></div>
+                                        <div className="h-6 bg-gray-300 rounded w-1/3"></div>
+                                    </Card>
+                                ))}
+                            </div>
                         ) : topLosersToday.length === 0 ? (
                             <div className="text-gray-500 text-center font-medium">
                                 There are no losers today.
@@ -331,14 +347,16 @@ export default function Home() {
                                         key={index}
                                         className="p-4 flex flex-col justify-between border shadow-sm"
                                     >
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm font-medium text-gray-500">{loser._id}</span>
+                                        <div
+                                            className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+                                <span className="text-sm font-medium text-gray-500">
+                                    {loser._id}
+                                </span>
                                             <span className="text-xl font-bold">
-                        {loser.percentageChange.toFixed(2)}%
-                      </span>
+                                    {loser.percentageChange.toFixed(2)}%
+                                </span>
                                         </div>
-                                        {/* Sparkline for each loser */}
-                                        <div className="mt-2">
+                                        <div className="mt-2 sm:mt-0">
                                             <SparklineChart
                                                 data={loser?.dailyPrices?.map((p) => p.price) || []}
                                                 color="red"
@@ -360,7 +378,17 @@ export default function Home() {
                     </CardHeader>
                     <CardContent>
                         {isLoading ? (
-                            <div className="animate-pulse">Loading...</div>
+                            <div className="grid grid-cols-3 gap-4">
+                                {Array.from({length: 6}).map((_, idx) => (
+                                    <Card
+                                        key={`gainer-skeleton-${idx}`}
+                                        className="p-4 flex flex-col justify-between border shadow-sm animate-pulse"
+                                    >
+                                        <div className="h-4 bg-gray-300 rounded w-2/3 mb-4"></div>
+                                        <div className="h-6 bg-gray-300 rounded w-1/3"></div>
+                                    </Card>
+                                ))}
+                            </div>
                         ) : (
                             <div className="grid grid-cols-3 gap-4">
                                 {topGainersToday.slice(0, 6).map((gainer, index) => (
@@ -368,14 +396,16 @@ export default function Home() {
                                         key={index}
                                         className="p-4 flex flex-col justify-between border shadow-sm"
                                     >
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm font-medium text-gray-500">{gainer._id}</span>
+                                        <div
+                                            className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+                                <span className="text-sm font-medium text-gray-500">
+                                    {gainer._id}
+                                </span>
                                             <span className="text-xl font-bold">
-                        {gainer.percentageChange.toFixed(2)}%
-                      </span>
+                                    {gainer.percentageChange.toFixed(2)}%
+                                </span>
                                         </div>
-                                        {/* Sparkline for each gainer */}
-                                        <div className="mt-2">
+                                        <div className="mt-2 sm:mt-0">
                                             <SparklineChart
                                                 data={gainer?.dailyPrices?.map((p) => p.price) || []}
                                                 color="green"
