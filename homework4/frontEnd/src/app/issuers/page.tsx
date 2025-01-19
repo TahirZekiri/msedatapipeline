@@ -13,6 +13,9 @@ import { UTCTimestamp } from "lightweight-charts";
 import { Candle} from "@/types/types";
 import { TradingDataChart } from "@/components/tradingDataChart";
 import TechnicalAnalysisChart from "@/components/technicalAnalysisChart";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5011/api";
+
 interface StockData {
     date: string;
     issuer: string;
@@ -72,15 +75,13 @@ export default function IssuersPage() {
         }
     }, []);
     useEffect(() => {
-        fetch("http://localhost:5001/api/issuers")
+        fetch(`${API_BASE_URL}/issuers`)
             .then((res) => res.json())
             .then((data: string[]) => setIssuers(data))
             .catch((err) => console.error(err));
     }, []);
     useEffect(() => {
-        fetch(
-            `http://localhost:5001/api/stockData?issuer=${selectedIssuer}&timeframe=${selectedTimeframe}`
-        )
+        fetch(`${API_BASE_URL}/stockData?issuer=${selectedIssuer}&timeframe=${selectedTimeframe}`)
             .then((res) => res.json())
             .then(
                 ({
@@ -145,7 +146,7 @@ export default function IssuersPage() {
     }, [selectedIssuer, selectedTimeframe]);
     useEffect(() => {
         fetch(
-            `http://localhost:5001/api/technicalAnalysis?issuer=${selectedIssuer}&indicator=${selectedIndicator}&period=${selectedIndicatorPeriod}`
+            `${API_BASE_URL}/technicalAnalysis?issuer=${selectedIssuer}&indicator=${selectedIndicator}&period=${selectedIndicatorPeriod}`
         )
             .then((res) => {
                 if (!res.ok) {

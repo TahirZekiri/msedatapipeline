@@ -1,0 +1,67 @@
+# //homework4/docker-compose.yml
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb-container
+    ports:
+      - "${MONGO_PORT}:${MONGO_PORT}"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ ping: 1 })"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - mongo-data:/data/db
+
+  data-pipeline:
+    build:
+      context: ./microservices/dataPipeline
+      dockerfile: ./Dockerfile
+    container_name: data-pipeline-container
+    ports:
+      - "5012:5012"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      - MONGO_URI=mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongodb:${MONGO_PORT}/${MONGO_DB}?authSource=admin
+
+  mstock-operations:
+    build:
+      context: ./microservices/mstockOperations
+      dockerfile: ./Dockerfile
+    container_name: mstock-operations-container
+    ports:
+      - "5011:5011"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      - MONGO_URI=mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongodb:${MONGO_PORT}/${MONGO_DB}?authSource=admin
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5011/api/issuers"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  front-end:
+    build:
+      context: ./frontEnd
+      dockerfile: ./Dockerfile
+    container_name: front-end-container
+    ports:
+      - "3000:3000"
+    depends_on:
+      mstock-operations:
+        condition: service_healthy
+      data-pipeline:
+        condition: service_started
+    environment:
+      - NEXT_PUBLIC_API_URL=http://mstock-operations:5011/api
+      - NEXT_PUBLIC_PIPELINE_URL=http://data-pipeline:5012/api
+
+volumes:
+  mongo-data:
